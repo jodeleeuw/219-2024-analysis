@@ -1,0 +1,178 @@
+---
+title: "Replication of Gantman et al. 2024"
+author: "219 2024"
+format: html
+---
+
+```{r}
+#| Libraries
+#| include: false
+
+library(readr)
+library(dplyr)
+library(jsonlite)
+library(ggplot2)
+```
+
+```{r}
+#| Download the data from the OSF
+
+```
+
+
+```{r}
+#| label: Load the behavioral data
+#| include: false
+
+behavioral_data <- read_csv('data/final/behavioral.csv')
+```
+
+```{r}
+#| label: Filter out the subjects who got fashion words twice due to programming error
+#| include: false
+
+exclude_for_fashion_twice_subjects <- behavioral_data %>%
+  filter(phase == "fashion", task == "response") %>%
+  group_by(subject_id) %>%
+  count() %>%
+  filter(n == 600) %>%
+  pull(subject_id)
+```
+
+
+```{r}
+#| label: Get subject non-response rate
+#| include: false
+
+subject_non_response_rate <- behavioral_data %>%
+  filter(phase == "moral" | phase == "fashion") %>%
+  filter(task == "response") %>%
+  group_by(subject_id) %>%
+  summarise(non_response_rate = mean(is.na(rt)))
+
+exclude_for_non_response_subjects <- subject_non_response_rate %>%
+  filter(non_response_rate > 0.5) %>%
+  pull(subject_id)
+```
+
+```{r}
+#| label: Compute subject non-word response rate
+#| include: false
+
+subject_non_word_response_rate <- behavioral_data %>%
+  filter(phase == "moral" | phase == "fashion") %>%
+  filter(task == "response") %>%
+  group_by(subject_id) %>%
+  mutate(non_word_response = ifelse(
+    (is_word == FALSE & correct == TRUE) |
+    (is_word == TRUE & correct == FALSE), 1, 0)) %>%
+  summarize(non_word_response_rate = mean(non_word_response))
+
+exclude_for_non_word_response_subjects <- subject_non_word_response_rate %>%
+  filter(non_word_response_rate > 0.9) %>%
+  pull(subject_id)
+```
+
+```{r}
+#| label: Create filtered data set by applying exclusions
+#| include: false
+
+exlcuded_subjects <- c(exclude_for_fashion_twice_subjects, exclude_for_non_response_subjects, exclude_for_non_word_response_subjects)
+
+behavioral_data_filtered <- behavioral_data %>%
+  filter(!subject_id %in% exlcuded_subjects)
+```
+
+
+```{r}
+#| label: Select relevant test data
+#| include: false
+
+
+behavioral_data_test_set <- behavioral_data_filtered %>%
+  filter(phase == "moral" | phase == "fashion") %>%
+  filter(task == "response") %>%
+  select(subject_id, word_type, is_word, correct, rt) %>%
+  mutate(word_category = ifelse(word_type %in% c("fashion", "moral"), "category", "non-category"),
+         category = ifelse(word_type %in% c("fashion", "non-fashion"), "fashion", "moral"))
+```
+
+```{r}
+#| Check accuracy
+#| include: false
+
+subject_level_accuracy <- behavioral_data_test_set %>%
+  group_by(subject_id, word_category, category, is_word) %>%
+  summarise(accuracy = mean(correct))
+```
+
+
+```{r}
+#| label: Behavioral pop-out effect
+
+behavioral_pop_out_data <- subject_level_accuracy %>%
+  filter(is_word == TRUE)
+
+ggplot(behavioral_pop_out_data, aes(x=word_category, y=accuracy, group=subject_id))+
+  geom_point()+
+  geom_line()+
+  #labs(x="Word Type", y="Accuracy")+
+  facet_grid(.~category)+
+  theme_bw()
+```
+
+
+```{r}
+#| Load eeg data
+#| include: false
+
+eeg_data <- read_csv("data/final/eeg.csv") %>%
+  filter(!subject %in% excluded_subjects)
+```
+
+
+```{r}
+#| label: Subject ERPs
+#| include: false
+
+subject_eeg <- eeg_data %>%
+  filter(good_segment == TRUE) %>%
+  filter(electrode %in% c("Cz", "Pz")) %>%
+  filter(correct == TRUE) %>%
+  group_by(subject, t, electrode, word_type, is_word) %>%
+  summarize(v = mean(v)) %>%
+  mutate(word_category = ifelse(word_type %in% c("fashion", "moral"), "category", "non-category"),
+         category = ifelse(word_type %in% c("fashion", "non-fashion"), "fashion", "moral"))
+```
+
+```{r}
+grand_average <- subject_eeg %>%
+  group_by(t, electrode, word_category, category, is_word) %>%
+  summarize(M = mean(v), SE = sd(v)/sqrt(n()))
+```
+
+```{r}
+ggplot(grand_average, aes(x=t, y=M, color=is_word, linetype=word_category)) +
+  geom_hline(yintercept = 0)+
+  geom_vline(xintercept = 0)+
+  geom_ribbon(aes(ymin=M-SE, ymax=M+SE, fill=is_word), alpha=0.2, color=NA)+
+  geom_line()+
+  scale_x_continuous(breaks=c(0,500, 1000))+
+  facet_grid(electrode~category)+
+  labs(x="Time since word onset (ms)", y="Voltage (uV)", color="Is word?", fill="Is word?", linetype="Word Category")+
+  theme_minimal()+
+  theme(panel.grid = element_blank())
+```
+
+
+```{r}
+count_good_trials <- eeg_data %>%
+  dplyr::filter(good_segment == TRUE) %>%
+  dplyr::filter(electrode %in% c("Cz", "Pz")) %>%
+  group_by(subject, electrode, word_type, is_word, event_id) %>%
+  slice(1) %>%
+  group_by(subject, electrode, word_type, is_word) %>%
+  summarize(n = n())
+
+count_good_trials
+```
