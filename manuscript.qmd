@@ -77,10 +77,10 @@ exclude_for_non_word_response_subjects <- subject_non_word_response_rate %>%
 #| label: Create filtered data set by applying exclusions
 #| include: false
 
-exlcuded_subjects <- c(exclude_for_fashion_twice_subjects, exclude_for_non_response_subjects, exclude_for_non_word_response_subjects)
+excluded_subjects <- c(exclude_for_fashion_twice_subjects, exclude_for_non_response_subjects, exclude_for_non_word_response_subjects)
 
 behavioral_data_filtered <- behavioral_data %>%
-  filter(!subject_id %in% exlcuded_subjects)
+  filter(!subject_id %in% excluded_subjects)
 ```
 
 
