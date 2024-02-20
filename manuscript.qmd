@@ -39,6 +39,14 @@ exclude_for_fashion_twice_subjects <- behavioral_data %>%
   pull(subject_id)
 ```
 
+```{r}
+#| label: Flip responses for subject 01
+#| include: false
+
+behavioral_data <- behavioral_data %>%
+  mutate(correct = ifelse(subject_id == "01", !correct, correct))
+```
+
 
 ```{r}
 #| label: Get subject non-response rate
@@ -121,6 +129,21 @@ ggplot(behavioral_pop_out_data, aes(x=word_category, y=accuracy, group=subject_i
   theme_bw()
 ```
 
+```{r}
+#| label: model the GEE
+
+library(gee)
+
+m <- gee(correct ~ word_category,
+    id = subject_id,
+    subset = is_word == TRUE & category == "moral",
+    data = behavioral_data_test_set,
+    family = binomial,
+    corstr = "exchangeable")
+
+summary(m)
+```
+
 
 ```{r}
 #| Load eeg data
@@ -128,6 +151,14 @@ ggplot(behavioral_pop_out_data, aes(x=word_category, y=accuracy, group=subject_i
 
 eeg_data <- read_csv("data/final/eeg.csv") %>%
   filter(!subject %in% excluded_subjects)
+```
+
+```{r}
+#| label: Flip subject 01s responses
+#| include: false
+
+eeg_data <- eeg_data %>%
+  mutate(correct = ifelse(subject == "01", !correct, correct))
 ```
 
 
@@ -140,7 +171,7 @@ subject_eeg <- eeg_data %>%
   filter(electrode %in% c("Cz", "Pz")) %>%
   filter(correct == TRUE) %>%
   group_by(subject, t, electrode, word_type, is_word) %>%
-  summarize(v = mean(v)) %>%
+  summarize(v = mean(v), n=n()) %>%
   mutate(word_category = ifelse(word_type %in% c("fashion", "moral"), "category", "non-category"),
          category = ifelse(word_type %in% c("fashion", "non-fashion"), "fashion", "moral"))
 ```
@@ -148,7 +179,7 @@ subject_eeg <- eeg_data %>%
 ```{r}
 grand_average <- subject_eeg %>%
   group_by(t, electrode, word_category, category, is_word) %>%
-  summarize(M = mean(v), SE = sd(v)/sqrt(n()))
+  summarize(M = weighted.mean(v, n), SE = sd(v)/sqrt(n()))
 ```
 
 ```{r}

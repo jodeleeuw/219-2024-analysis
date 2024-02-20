@@ -2,8 +2,9 @@ library(readr)
 library(stringr)
 source("preprocessing/preprocessing-eeg-functions.R")
 
-subjects <- c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14",
-              "16", "17", "18", "20")
+subjects <- list.files('data/raw/beh/', pattern="json") %>% 
+  str_extract("[0-9]*.json") %>%
+  str_remove(".json")
 
 for(subject in subjects){
   

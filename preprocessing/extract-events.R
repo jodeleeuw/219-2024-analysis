@@ -2,9 +2,10 @@ library(edfReader)
 library(purrr)
 library(dplyr)
 library(jsonlite)
+library(fuzzyjoin)
 
-eeg.file <- "data/raw/eeg/subject-08-eeg_2024-02-10.bdf"
-beh.file <- "data/raw/beh/219_2024_behavioral_08.json"
+eeg.file <- "data/raw/eeg/subject-25-eeg_2024-02-14.bdf"
+beh.file <- "data/raw/beh/219_2024_behavioral_25.json"
 
 extract_events <- function(eeg.file, beh.file){
   
@@ -21,7 +22,9 @@ extract_events <- function(eeg.file, beh.file){
   trials <- behavioral.data %>% 
     dplyr::filter(task=="response") %>% 
     dplyr::filter(phase!="practice") %>%
-    select(word_type, is_word, correct) %>%
+    select(word_type, is_word, correct, time_elapsed) %>%
+    mutate(time_since_first_trial = (time_elapsed - min(time_elapsed))/1000) %>%
+    select(-time_elapsed) %>%
     mutate(row_id = 1:n())
   
   ## extract EEG events
@@ -57,14 +60,15 @@ extract_events <- function(eeg.file, beh.file){
   # indicating that the experimenter dragged the window 
   # under the sensor after starting recording
   
-  if(filtered.events$time[2] - filtered.events$time[1] > 10){
+  while(filtered.events$time[2] - filtered.events$time[1] > 10){
     # remove the first row
     filtered.events <- filtered.events %>%
       slice(-1) %>%
       mutate(row_id = 1:n())
   }
   
-  while(nrow(filtered.events) > 600){
+  removed_one <- TRUE
+  while(removed_one){
     # remove the first row where diff is less than 1.9
     fake.event <- filtered.events %>% 
      mutate(diff = time - lag(time)) %>%
@@ -73,19 +77,32 @@ extract_events <- function(eeg.file, beh.file){
       pull(sample_id)
     
     if(length(fake.event) == 0){
-      
-      break
+      removed_one <- FALSE
     }
     
     filtered.events <- filtered.events %>%
       dplyr::filter(!sample_id %in% fake.event) %>%
       mutate(row_id = 1:n())
   }
- 
-  final_events <- filtered.events %>% 
-    left_join(trials, by="row_id") %>%
+  
+  # add a check that compares time of the event to the time in the behavioral
+  # data file to align the two datasets when there are fewer events recorded
+  # than trials in the behavioral data.
+  
+  filtered.events <- filtered.events %>% 
+    mutate(time_since_first_trial = time - min(time))
+  
+  final_events <- trials %>%
+    difference_left_join(filtered.events, by="time_since_first_trial", max_dist = 2) %>%
     mutate(event_id = 1:n()) %>%
+    dplyr::filter(!is.na(sample_id)) %>%
     select(event_id, sample_id, time, event_type, word_type, is_word, correct)
+  
+ 
+  # final_events <- filtered.events %>% 
+  #   left_join(trials, by="row_id") %>%
+  #   mutate(event_id = 1:n()) %>%
+  #   select(event_id, sample_id, time, event_type, word_type, is_word, correct)
   
   return(final_events)
 }
