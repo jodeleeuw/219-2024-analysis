@@ -60,8 +60,8 @@ extract_events <- function(eeg.file, beh.file){
   # indicating that the experimenter dragged the window 
   # under the sensor after starting recording
   
-  while(filtered.events$time[2] - filtered.events$time[1] > 10){
-    # remove the first row
+  while(filtered.events$time[5] - filtered.events$time[1] > 25){
+    # remove the first ro
     filtered.events <- filtered.events %>%
       slice(-1) %>%
       mutate(row_id = 1:n())

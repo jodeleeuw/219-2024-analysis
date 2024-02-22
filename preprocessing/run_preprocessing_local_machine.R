@@ -24,13 +24,14 @@ for(subject in subjects){
       subject_id = subject,
       sampling_rate = 500,
       filter_low = 0.1,
-      filter_high = 70,
+      filter_high = 30,
       notch_filter_low = 59,
       notch_filter_high = 61,
       segment_begin = -200,
       segment_end = 1000,
       segment_offset = 0,
-      bad_segment_range = 200,
+      bad_segment_range = 500,
+      eye_threshold = 70,
       which_electrodes = c("Fp1", "Fp2", "Cz", "Pz"))
     
     write_csv(preprocessed.data, file=paste0("data/preprocessed/subject-", subject,"-epochs.csv"))

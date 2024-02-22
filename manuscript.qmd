@@ -5,18 +5,21 @@ format: html
 ---
 
 ```{r}
-#| Libraries
+#| label: Load libraries
 #| include: false
 
 library(readr)
 library(dplyr)
 library(jsonlite)
 library(ggplot2)
+library(osfr)
 ```
 
 ```{r}
-#| Download the data from the OSF
-
+#| label: Download the data from the OSF
+osf_retrieve_node("ngtha") %>%
+  osf_ls_files() %>%
+  osf_download(path="data/final", conflicts="skip")
 ```
 
 
@@ -106,7 +109,7 @@ behavioral_data_test_set <- behavioral_data_filtered %>%
 ```
 
 ```{r}
-#| Check accuracy
+#| label: Check accuracy
 #| include: false
 
 subject_level_accuracy <- behavioral_data_test_set %>%
@@ -116,7 +119,7 @@ subject_level_accuracy <- behavioral_data_test_set %>%
 
 
 ```{r}
-#| label: Behavioral pop-out effect
+#| label: fig-beh-pop-out
 
 behavioral_pop_out_data <- subject_level_accuracy %>%
   filter(is_word == TRUE)
@@ -131,6 +134,7 @@ ggplot(behavioral_pop_out_data, aes(x=word_category, y=accuracy, group=subject_i
 
 ```{r}
 #| label: model the GEE
+#| include: false
 
 library(gee)
 
@@ -146,10 +150,10 @@ summary(m)
 
 
 ```{r}
-#| Load eeg data
+#| label: Load eeg data
 #| include: false
 
-eeg_data <- read_csv("data/final/eeg.csv") %>%
+eeg_data <- read_csv("data/final/eeg.csv", col_types = "cdcllcdlc") %>%
   filter(!subject %in% excluded_subjects)
 ```
 
@@ -183,6 +187,9 @@ grand_average <- subject_eeg %>%
 ```
 
 ```{r}
+#| label: fig-grand-averages
+#| fig-width: 10
+#| fig-height: 8
 ggplot(grand_average, aes(x=t, y=M, color=is_word, linetype=word_category)) +
   geom_hline(yintercept = 0)+
   geom_vline(xintercept = 0)+
