@@ -148,6 +148,40 @@ m <- gee(correct ~ word_category,
 summary(m)
 ```
 
+```{r}
+#| label: Compute response time differences for words
+#| include: false
+
+subject_level_rt <- behavioral_data_test_set %>%
+  filter(correct == TRUE) %>%
+  group_by(subject_id, word_category, category, is_word) %>%
+  summarize(rt = mean(rt, na.rm = TRUE))
+```
+
+```{r}
+behavioral_pop_out_data <- subject_level_rt %>%
+  filter(is_word == TRUE)
+
+ggplot(behavioral_pop_out_data, aes(x=word_category, y=rt, group=subject_id))+
+  geom_point()+
+  geom_line()+
+  #labs(x="Word Type", y="Accuracy")+
+  facet_grid(.~category)+
+  theme_bw()
+```
+
+
+```{r}
+m <- gee(rt ~ word_category,
+    id = subject_id,
+    subset = is_word == TRUE & correct == TRUE & category == "moral",
+    data = behavioral_data_test_set,
+    family = gaussian,
+    corstr = "exchangeable")
+
+summary(m)
+```
+
 
 ```{r}
 #| label: Load eeg data
