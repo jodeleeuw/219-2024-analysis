@@ -111,6 +111,31 @@ eyeblink_detector_step <- function(v, window_size=200, sampling_rate=500){
   return(max.diff)
 }
 
+#v <- eyes %>% dplyr::filter(event_id == 409) %>% pull(v)
+
+eyeblink_points <- function(v, blink_criteria=10, sampling_rate=500, window_ms=200){
+  window_length <- window_ms * (sampling_rate/1000)
+  half_window <- window_length / 2
+  blink_cov <- c(seq(-1, 1, length.out=half_window), seq(1, -1, length.out=half_window))
+  # look for rise and then fall
+  cv <- stats::filter(v, blink_cov, method="convolution", sides=2) / length(blink_cov)
+  blink_idx <- which(cv > blink_criteria)
+  
+  margin <- round(half_window / 2)
+  blink_idx <- sapply(blink_idx, function(x){
+    return(seq(x-margin, x+margin))
+  }) %>% as.numeric() %>% unique()
+  
+  blink.df <- data.frame(x=1:length(v), v=v)
+  blink.df <- blink.df %>% 
+    mutate(is_blinking = x %in% blink_idx)
+  
+  ggplot(blink.df, aes(x=x, y=v, color=is_blinking)) +
+    geom_point()
+  
+  return(blink.df %>% pull(is_blinking))
+}
+
 eyeblink_removal_with_regression <- function(epochs, eye_channels=c("Fp1", "Fp2"), target_channels=c("Cz", "Pz")){
   
   # compute a single average for the eye channels for each condition
@@ -122,15 +147,19 @@ eyeblink_removal_with_regression <- function(epochs, eye_channels=c("Fp1", "Fp2"
   # identify all time points that include an eyeblink
   # we will use this to remove the eyeblink from the target channels
   
-  eyeblinks <- eyes %>% 
+  eyeblinks <- eyes %>%
     group_by(event_id) %>%
-    summarize(eyeblink = eyeblink_detector_step(v) > 70)
+    mutate(is_blinking = eyeblink_points(v, blink_criteria=15, sampling_rate=500, window_ms=200))
   
-  eyes <- eyes %>%
-    left_join(eyeblinks, by="event_id")
+  eyeblink_binary <- eyeblinks %>% 
+    group_by(event_id) %>%
+    summarize(eyeblink = any(is_blinking))
   
-  ggplot(eyes %>% dplyr::filter(event_id==581), aes(x=t, y=v)) +
-    geom_line()
+  # eyes <- eyes %>%
+  #   left_join(eyeblinks, by="event_id")
+  
+  #ggplot(eyes %>% dplyr::filter(event_id==3), aes(x=t, y=v)) +
+   # geom_line()
   
   # compute the average for the eye channels and for the target channels for each condition
   # this generate the event-related signal
@@ -145,9 +174,9 @@ eyeblink_removal_with_regression <- function(epochs, eye_channels=c("Fp1", "Fp2"
     group_by(electrode, word_type, is_word, t) %>%
     summarize(v = mean(v))
  
-  ggplot(target, aes(x=t, y=v, color=word_type, linetype=is_word)) +
-    geom_line() +
-    facet_grid(word_type~electrode)
+  # ggplot(target, aes(x=t, y=v, color=word_type, linetype=is_word)) +
+  #   geom_line() +
+  #   facet_grid(word_type~electrode)
   
   # subtract the average of the eye channels from each individual
   # trial in the eye channels. trials are defined by event_id.
