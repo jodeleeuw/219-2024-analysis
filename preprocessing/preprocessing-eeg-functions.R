@@ -111,21 +111,27 @@ eyeblink_detector_step <- function(v, window_size=200, sampling_rate=500){
   return(max.diff)
 }
 
-eyeblink_points <- function(v, blink_criteria=15, sampling_rate=500, window_ms=200){
+#v <- eyes %>% dplyr::filter(event_id == 409) %>% pull(v)
+
+eyeblink_points <- function(v, blink_criteria=10, sampling_rate=500, window_ms=200){
   window_length <- window_ms * (sampling_rate/1000)
   half_window <- window_length / 2
-  blink_cov <- c(rep(+1, half_window), rep(-1, half_window))
+  blink_cov <- c(seq(-1, 1, length.out=half_window), seq(1, -1, length.out=half_window))
+  # look for rise and then fall
   cv <- stats::filter(v, blink_cov, method="convolution", sides=2) / length(blink_cov)
-  blink_pts <- abs(cv) >= blink_criteria
-  blink_group <- cumsum(c(0, abs(diff(as.integer(blink_pts)))))
-  blink_mean <- mean(v[blink_pts])
+  blink_idx <- which(cv > blink_criteria)
   
-  blink.df <- data.frame(v=v, is_blinking=blink_pts, blink_group=blink_group)
+  margin <- round(half_window / 2)
+  blink_idx <- sapply(blink_idx, function(x){
+    return(seq(x-margin, x+margin))
+  }) %>% as.numeric() %>% unique()
+  
+  blink.df <- data.frame(x=1:length(v), v=v)
   blink.df <- blink.df %>% 
-    group_by(blink_group) %>%
-    mutate(blink_group_avg=mean(v)) %>%
-    ungroup() %>%
-    mutate(is_blinking = is_blinking | blink_group_avg > blink_mean)
+    mutate(is_blinking = x %in% blink_idx)
+  
+  ggplot(blink.df, aes(x=x, y=v, color=is_blinking)) +
+    geom_point()
   
   return(blink.df %>% pull(is_blinking))
 }
@@ -143,14 +149,14 @@ eyeblink_removal_with_regression <- function(epochs, eye_channels=c("Fp1", "Fp2"
   
   eyeblinks <- eyes %>%
     group_by(event_id) %>%
-    mutate(is_blinking = eyeblink_points(v, blink_criteria=15, sampling_rate=500, window_ms=200)) %>%
+    mutate(is_blinking = eyeblink_points(v, blink_criteria=15, sampling_rate=500, window_ms=200))
   
-  eyeblinks <- eyes %>% 
+  eyeblink_binary <- eyeblinks %>% 
     group_by(event_id) %>%
     summarize(eyeblink = any(is_blinking))
   
-  eyes <- eyes %>%
-    left_join(eyeblinks, by="event_id")
+  # eyes <- eyes %>%
+  #   left_join(eyeblinks, by="event_id")
   
   #ggplot(eyes %>% dplyr::filter(event_id==3), aes(x=t, y=v)) +
    # geom_line()
