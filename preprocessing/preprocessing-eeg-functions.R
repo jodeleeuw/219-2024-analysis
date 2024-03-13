@@ -138,22 +138,23 @@ eyeblink_points <- function(v, blink_criteria=10, sampling_rate=500, window_ms=2
 
 eyeblink_removal_with_regression <- function(epochs, eye_channels=c("Fp1", "Fp2"), target_channels=c("Cz", "Pz")){
   
-  # compute a single average for the eye channels for each condition
-  eyes <- epochs %>% 
-    dplyr::filter(electrode %in% eye_channels) %>%
-    group_by(event_id, word_type, is_word, t) %>%
-    summarize(v = mean(v))
+
   
   # identify all time points that include an eyeblink
   # we will use this to remove the eyeblink from the target channels
-  
-  eyeblinks <- eyes %>%
+  single_eye_channel_with_blinks <- epochs %>% 
+    dplyr::filter(electrode %in% eye_channels) %>%
+    group_by(event_id, t) %>%
+    summarize(v = mean(v)) %>%
     group_by(event_id) %>%
-    mutate(is_blinking = eyeblink_points(v, blink_criteria=15, sampling_rate=500, window_ms=200))
+    mutate(is_blinking = eyeblink_points(v, blink_criteria=15, sampling_rate=500, window_ms=200)) %>%
+    ungroup()
   
-  eyeblink_binary <- eyeblinks %>% 
-    group_by(event_id) %>%
-    summarize(eyeblink = any(is_blinking))
+  # compute a single average for the eye channels for each condition
+  eyes_average <- single %>% 
+    dplyr::filter(electrode %in% eye_channels) %>%
+    group_by(event_id, word_type, is_word, t) %>%
+    summarize(v = mean(v))
   
   # eyes <- eyes %>%
   #   left_join(eyeblinks, by="event_id")
