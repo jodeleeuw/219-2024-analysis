@@ -5,9 +5,9 @@ library(dplyr)
 
 files <- list.files("data/preprocessed", pattern = "*.csv", full.names = TRUE)
 data <- lapply(files, function(x){
-  read_csv(x, col_types = "cdcllcdddllc") %>% 
+  read_csv(x, col_types = "cdcllcddlc") %>% 
     dplyr::filter(electrode %in% c("Cz", "Pz")) %>%
-    select(-v_range, -eye_range, -eyeblink)
+    select(-v_range, -good_segment)
 }) %>% 
   bind_rows()
 

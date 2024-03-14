@@ -11,8 +11,16 @@ preprocess_eeg <- function(file, beh.file, subject_id, sampling_rate=500, filter
     bandpass(low=filter_low, high=filter_high, sampling_rate=sampling_rate) %>%
     #notch(low=notch_filter_low, high=notch_filter_high, sampling_rate=sampling_rate) %>%
     segment(start = segment_begin, end = segment_end, offset=segment_offset, sampling_rate=sampling_rate) %>%
-    artifact_rejection(max_range=bad_segment_range, eye_threshold = eye_threshold) %>%
+    large_anomaly_removal(max_range=1000) %>%
+    filter_epochs_with_bad_channels(expected_channels = 4) %>%
+    baseline_correct(start_baseline=-200) %>%
+    eyeblink_removal_with_regression(eye_channels=c("Fp1", "Fp2"), target_channels=c("Cz", "Pz"), blink_criteria=10, sampling_rate=sampling_rate, windows_ms=200) %>%
+    change_segment_range(start_time=-200, end_time=1000) %>%
+    large_anomaly_removal(max_range=500) %>%
+    filter_epochs_with_bad_channels(expected_channels = 2) %>%
     baseline_correct() %>%
+    #artifact_rejection(max_range=bad_segment_range, eye_threshold = eye_threshold) %>%
+    
     mutate(subject = subject_id)
   
   return(data)
@@ -130,43 +138,44 @@ eyeblink_points <- function(v, blink_criteria=10, sampling_rate=500, window_ms=2
   blink.df <- blink.df %>% 
     mutate(is_blinking = x %in% blink_idx)
   
-  ggplot(blink.df, aes(x=x, y=v, color=is_blinking)) +
-    geom_point()
+  # ggplot(blink.df, aes(x=x, y=v, color=is_blinking)) +
+  #   geom_point()
   
   return(blink.df %>% pull(is_blinking))
 }
 
-eyeblink_removal_with_regression <- function(epochs, eye_channels=c("Fp1", "Fp2"), target_channels=c("Cz", "Pz")){
+large_anomaly_removal <- function(epochs, max_range=1000){
+  d <- epochs %>% 
+    group_by(event_id, electrode) %>%
+    summarize(v_range = max(v) - min(v))
   
+  good.segments <- d %>% 
+    group_by(event_id) %>%
+    mutate(good_segment = v_range <= max_range) %>%
+    ungroup()
+  
+  epochs.ar <- epochs %>%
+    left_join(good.segments, by=c("event_id", "electrode")) %>%
+    dplyr::filter(good_segment)
+  
+  return(epochs.ar)
+}
 
+eyeblink_removal_with_regression <- function(epochs, eye_channels=c("Fp1", "Fp2"), target_channels=c("Cz", "Pz"), blink_criteria=10, sampling_rate=500, windows_ms=200){
   
   # identify all time points that include an eyeblink
   # we will use this to remove the eyeblink from the target channels
   single_eye_channel_with_blinks <- epochs %>% 
     dplyr::filter(electrode %in% eye_channels) %>%
-    group_by(event_id, t) %>%
-    summarize(v = mean(v)) %>%
-    group_by(event_id) %>%
-    mutate(is_blinking = eyeblink_points(v, blink_criteria=15, sampling_rate=500, window_ms=200)) %>%
-    ungroup()
-  
-  # compute a single average for the eye channels for each condition
-  eyes_average <- single %>% 
-    dplyr::filter(electrode %in% eye_channels) %>%
     group_by(event_id, word_type, is_word, t) %>%
-    summarize(v = mean(v))
-  
-  # eyes <- eyes %>%
-  #   left_join(eyeblinks, by="event_id")
-  
-  #ggplot(eyes %>% dplyr::filter(event_id==3), aes(x=t, y=v)) +
-   # geom_line()
+    summarize(v = mean(v)) %>%
+    group_by(event_id, word_type, is_word) %>% # grouping by word_type and is_word just to preserve those vars
+    mutate(is_blinking = eyeblink_points(v, blink_criteria=blink_criteria, sampling_rate=sampling_rate, window_ms=windows_ms)) %>%
+    ungroup()
   
   # compute the average for the eye channels and for the target channels for each condition
   # this generate the event-related signal
-  
-  eye <- epochs %>% 
-    dplyr::filter(electrode %in% eye_channels) %>%
+  eyes_average <- single_eye_channel_with_blinks %>% 
     group_by(word_type, is_word, t) %>%
     summarize(v = mean(v))
   
@@ -183,11 +192,8 @@ eyeblink_removal_with_regression <- function(epochs, eye_channels=c("Fp1", "Fp2"
   # trial in the eye channels. trials are defined by event_id.
   # merge to a single "virtual" EOG electrode
   
-  eye_single_trials <- epochs %>%
-    dplyr::filter(electrode %in% eye_channels) %>%
-    group_by(event_id, word_type, is_word, t) %>%
-    summarize(v = mean(v)) %>%
-    left_join(eye, by=c("word_type", "is_word", "t")) %>%
+  eye_single_trials <- single_eye_channel_with_blinks %>%
+    left_join(eyes_average, by=c("word_type", "is_word", "t")) %>%
     mutate(v = v.x - v.y) %>%
     select(-v.x, -v.y)
   
@@ -201,14 +207,15 @@ eyeblink_removal_with_regression <- function(epochs, eye_channels=c("Fp1", "Fp2"
   
   # now we can compute the regression coefficients for each trial
   # in the eye channels and the target channels.
-  library(broom)
+
   regression_data <- target_single_trials %>%
     left_join(eye_single_trials, by=c("event_id", "t", "word_type", "is_word")) %>%
+    dplyr::filter(is_blinking) %>%
     group_by(electrode, word_type, is_word) %>%
     nest() %>%
     mutate(regression = map(data, function(x){
       m <- lm(v.x ~ v.y, data=x)
-      return(tidy(m, conf.int=FALSE))
+      return(broom::tidy(m, conf.int=FALSE))
     })) %>%
     unnest(regression) %>%
     select(-data, -std.error, -statistic, -p.value) %>%
@@ -221,17 +228,25 @@ eyeblink_removal_with_regression <- function(epochs, eye_channels=c("Fp1", "Fp2"
   epochs.corrected <- epochs %>% 
     dplyr::filter(electrode %in% target_channels) %>%
     left_join(regression_data, by=c("electrode", "word_type", "is_word")) %>%
-    left_join(eyes, by=c("event_id", "t", "word_type", "is_word")) %>%
-    mutate(v = v.x - (v.y * estimate))
+    left_join(single_eye_channel_with_blinks, by=c("event_id", "t", "word_type", "is_word")) %>%
+    mutate(v = if_else(is_blinking, v.x - (v.y * estimate), v.x)) %>%
+    select(-v.x, -v.y, -is_blinking, -estimate, -v_range, -good_segment)
   
-  target.corrected <- epochs.corrected %>% 
-    group_by(electrode, word_type, is_word, t) %>%
-    summarize(v = mean(v))
+  # target.corrected <- epochs.corrected %>% 
+  #   group_by(electrode, word_type, is_word, t) %>%
+  #   summarize(v = mean(v))
 
-  ggplot(target.corrected, aes(x=t, y=v, color=word_type, linetype=is_word)) +
-    geom_line() +
-    coord_cartesian(ylim=c(-20, 10)) +
-    facet_grid(word_type~electrode)
+  # ggplot(target.corrected, aes(x=t, y=v, color=word_type, linetype=is_word)) +
+  #   geom_line() +
+  #   coord_cartesian(ylim=c(-20, 20)) +
+  #   facet_grid(word_type~electrode)
+  # 
+  # ggplot(target, aes(x=t, y=v, color=word_type, linetype=is_word)) +
+  #   geom_line() +
+  #   coord_cartesian(ylim=c(-20, 20)) +
+  #   facet_grid(word_type~electrode)
+  
+  return (epochs.corrected)
 }
 
 artifact_rejection <- function(epochs, max_range=200, eye_threshold=70){
@@ -256,10 +271,30 @@ artifact_rejection <- function(epochs, max_range=200, eye_threshold=70){
   return(epochs.ar)
 }
 
-baseline_correct <- function(epochs){
+change_segment_range <- function(epochs, start_time=-200, end_time=1000){
+  epochs <- epochs %>%
+    dplyr::filter(t >= start_time & t <= end_time)
+  return(epochs)
+}
+
+filter_epochs_with_bad_channels <- function(epochs, expected_channels=4){
+  d <- epochs %>% 
+    group_by(event_id) %>%
+    summarize(n_channels = n_distinct(electrode)) %>%
+    dplyr::filter(n_channels == expected_channels) %>%
+    pull(event_id)
+  
+  epochs <- epochs %>%
+    dplyr::filter(event_id %in% d)
+  
+  return(epochs)
+}
+  
+
+baseline_correct <- function(epochs, start_baseline=-Inf){
   baseline.means <- epochs %>%
     group_by(electrode, event_id) %>%
-    dplyr::filter(t <= 0) %>%
+    dplyr::filter(t <= 0 & t>=start_baseline) %>%
     summarize(baseline.mean = mean(v))
   
   epoch.bc <- epochs %>%

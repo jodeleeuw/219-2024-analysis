@@ -13,15 +13,23 @@ library(dplyr)
 library(jsonlite)
 library(ggplot2)
 library(osfr)
+library(gee)
+library(tidyr)
 ```
+
+# Introduction
+
+This is a replication of the study by Gantman et al. (2014). Replications are important for *reasons*.
+
+# Methods
 
 ```{r}
 #| label: Download the data from the OSF
+#| include: false
 osf_retrieve_node("ngtha") %>%
   osf_ls_files() %>%
   osf_download(path="data/final", conflicts="skip")
 ```
-
 
 ```{r}
 #| label: Load the behavioral data
@@ -29,6 +37,8 @@ osf_retrieve_node("ngtha") %>%
 
 behavioral_data <- read_csv('data/final/behavioral.csv')
 ```
+
+## Participants
 
 ```{r}
 #| label: Filter out the subjects who got fashion words twice due to programming error
@@ -43,13 +53,13 @@ exclude_for_fashion_twice_subjects <- behavioral_data %>%
 ```
 
 ```{r}
-#| label: Flip responses for subject 01
+#| label: Flip responses for subject 01, 36 moral words
 #| include: false
 
 behavioral_data <- behavioral_data %>%
-  mutate(correct = ifelse(subject_id == "01", !correct, correct))
+  mutate(correct = ifelse(subject_id == "01", !correct, correct)) %>%
+  mutate(correct = ifelse(subject_id == "36" & phase == "moral", !correct, correct))
 ```
-
 
 ```{r}
 #| label: Get subject non-response rate
@@ -94,6 +104,20 @@ behavioral_data_filtered <- behavioral_data %>%
   filter(!subject_id %in% excluded_subjects)
 ```
 
+```{r}
+#| label: Count the number of subjects and subjects remaining
+#| include: false
+
+n_subjects <- behavioral_data %>% pull(subject_id) %>% unique() %>% length()
+
+n_subjects_remaining <- behavioral_data_filtered %>% pull(subject_id) %>% unique() %>% length()
+```
+
+`r n_subjects` subjects were recruited for the study. After applying the exclusion criteria, `r n_subjects_remaining` subjects remain. `r length(exclude_for_fashion_twice_subjects)` subjects were excluded for receiving fashion words twice due to a technical error, `r length(exclude_for_non_response_subjects)` subjects were excluded for having a non-response rate greater than 50%, and `r length(exclude_for_non_word_response_subjects)` subjects were excluded for having a non-word response rate greater than 90%.
+
+# Results
+
+## Behavioral
 
 ```{r}
 #| label: Select relevant test data
@@ -114,39 +138,59 @@ behavioral_data_test_set <- behavioral_data_filtered %>%
 
 subject_level_accuracy <- behavioral_data_test_set %>%
   group_by(subject_id, word_category, category, is_word) %>%
-  summarise(accuracy = mean(correct))
+  summarise(accuracy = mean(correct), se=sd(correct)/sqrt(n()))
 ```
-
 
 ```{r}
 #| label: fig-beh-pop-out
+#| fig-cap: Accuracy for word trials in the fashion and moral conditions showed that performance was much higher than expected. We later discovered this was due to a difference in procedure between our study and the original study.
 
 behavioral_pop_out_data <- subject_level_accuracy %>%
-  filter(is_word == TRUE)
+  filter(is_word == TRUE) %>%
+  pivot_wider(names_from = word_category, values_from = c(accuracy, se))
 
-ggplot(behavioral_pop_out_data, aes(x=word_category, y=accuracy, group=subject_id))+
+ggplot(behavioral_pop_out_data, aes(x=`accuracy_non-category`, y=`accuracy_category`))+
   geom_point()+
-  geom_line()+
-  #labs(x="Word Type", y="Accuracy")+
-  facet_grid(.~category)+
-  theme_bw()
+  geom_linerange(aes(ymin=`accuracy_category`-`se_category`, ymax=`accuracy_category`+`se_category`), size=0.25)+
+  geom_linerange(aes(xmin=`accuracy_non-category`-`se_non-category`, xmax=`accuracy_non-category`+`se_non-category`), size=0.25, alpha=0.3)+
+  labs(x="Accuracy for non-category words", y="Accuracy for category words")+
+  facet_grid(.~category, labeller = as_labeller(c("fashion"="Fashion Words", "moral"="Moral Words")))+ 
+  geom_abline(intercept = 0, slope = 1, linetype="dashed")+
+  coord_cartesian(xlim=c(0.5,1), ylim=c(0.5,1))+
+  theme_bw(base_size=12)+
+  theme(aspect.ratio=1, panel.grid=element_blank())
 ```
 
 ```{r}
-#| label: model the GEE
+#| label: Models for pop out effects
 #| include: false
 
-library(gee)
-
-m <- gee(correct ~ word_category,
+behavioral_model_moral_pop_out <- gee(correct ~ word_category,
     id = subject_id,
     subset = is_word == TRUE & category == "moral",
     data = behavioral_data_test_set,
     family = binomial,
-    corstr = "exchangeable")
+    corstr = "exchangeable") %>% summary()
 
-summary(m)
+coefficient_moral_pop_out <- behavioral_model_moral_pop_out$coefficients[2, 'Estimate']
+coefficient_moral_pop_out_se <- behavioral_model_moral_pop_out$coefficients[2, 'Robust S.E.']
+z_moral_pop_out <- behavioral_model_moral_pop_out$coefficients[2, 'Robust z']
+p_moral_pop_out <- z_moral_pop_out %>% pnorm(lower.tail = FALSE)
+
+fashion_model_moral_pop_out <- gee(correct ~ word_category,
+    id = subject_id,
+    subset = is_word == TRUE & category == "fashion",
+    data = behavioral_data_test_set,
+    family = binomial,
+    corstr = "exchangeable") %>% summary()
+
+coefficient_fashion_pop_out <- fashion_model_moral_pop_out$coefficients[2, 'Estimate']
+coefficient_fashion_pop_out_se <- fashion_model_moral_pop_out$coefficients[2, 'Robust S.E.']
+z_fashion_pop_out <- fashion_model_moral_pop_out$coefficients[2, 'Robust z']
+p_fashion_pop_out <- z_fashion_pop_out %>% pnorm(lower.tail = FALSE)
 ```
+
+Accuracy for moral words was not significantly different between category and non-category words, $b = `r coefficient_moral_pop_out`$, $SE = `r coefficient_moral_pop_out_se`$, $z = `r z_moral_pop_out`$, $p = `r p_moral_pop_out`$. Accuracy for fashion words was significantly different between category and non-category words, $b = `r coefficient_fashion_pop_out`$, $SE = `r coefficient_fashion_pop_out_se`$, $z = `r z_fashion_pop_out`$, $p = `r p_fashion_pop_out`$.
 
 ```{r}
 #| label: Compute response time differences for words
@@ -159,6 +203,8 @@ subject_level_rt <- behavioral_data_test_set %>%
 ```
 
 ```{r}
+#| include: false
+
 behavioral_pop_out_data <- subject_level_rt %>%
   filter(is_word == TRUE)
 
@@ -172,6 +218,9 @@ ggplot(behavioral_pop_out_data, aes(x=word_category, y=rt, group=subject_id))+
 
 
 ```{r}
+#| include: false
+
+
 m <- gee(rt ~ word_category,
     id = subject_id,
     subset = is_word == TRUE & correct == TRUE & category == "moral",
@@ -182,13 +231,15 @@ m <- gee(rt ~ word_category,
 summary(m)
 ```
 
+## EEG
 
 ```{r}
 #| label: Load eeg data
 #| include: false
 
-eeg_data <- read_csv("data/final/eeg.csv", col_types = "cdcllcdlc") %>%
-  filter(!subject %in% excluded_subjects)
+eeg_data <- read_csv("data/final/eeg.csv", col_types = "cdcllcdc") %>%
+  filter(!subject %in% excluded_subjects) %>%
+  filter(subject != "34") # really few usable segments
 ```
 
 ```{r}
@@ -196,7 +247,8 @@ eeg_data <- read_csv("data/final/eeg.csv", col_types = "cdcllcdlc") %>%
 #| include: false
 
 eeg_data <- eeg_data %>%
-  mutate(correct = ifelse(subject == "01", !correct, correct))
+  mutate(correct = ifelse(subject == "01", !correct, correct)) %>%
+  mutate(correct = ifelse(subject == "36" & word_type == "moral", !correct, correct))
 ```
 
 
@@ -205,7 +257,6 @@ eeg_data <- eeg_data %>%
 #| include: false
 
 subject_eeg <- eeg_data %>%
-  filter(good_segment == TRUE) %>%
   filter(electrode %in% c("Cz", "Pz")) %>%
   filter(correct == TRUE) %>%
   group_by(subject, t, electrode, word_type, is_word) %>%
@@ -217,7 +268,7 @@ subject_eeg <- eeg_data %>%
 ```{r}
 grand_average <- subject_eeg %>%
   group_by(t, electrode, word_category, category, is_word) %>%
-  summarize(M = weighted.mean(v, n), SE = sd(v)/sqrt(n()))
+  summarize(M = mean(v), SE = sd(v)/sqrt(n()))
 ```
 
 ```{r}
@@ -238,13 +289,219 @@ ggplot(grand_average, aes(x=t, y=M, color=is_word, linetype=word_category)) +
 
 
 ```{r}
+#| label: Count the number of good segments per subject
+#| include: false
 count_good_trials <- eeg_data %>%
-  dplyr::filter(good_segment == TRUE) %>%
-  dplyr::filter(electrode %in% c("Cz", "Pz")) %>%
-  group_by(subject, electrode, word_type, is_word, event_id) %>%
-  slice(1) %>%
-  group_by(subject, electrode, word_type, is_word) %>%
-  summarize(n = n())
+  filter(t==0, electrode=="Cz") %>%
+  group_by(subject) %>%
+  summarize(n=n()) %>%
+  mutate(percent = (n/600)*100)
 
-count_good_trials
+mean_good_trials <- mean(count_good_trials$n)
+sd_good_trials <- sd(count_good_trials$n)
+
+```
+
+```{r}
+#| label: Define time windows
+#| include: false
+p2.window.start <- 200
+p2.window.end <- 250
+n2.window.start <- 250
+n2.window.end <- 350
+p3.window.start <- 350
+p3.window.end <- 600
+lpp.window.start <- 600
+lpp.window.end <- 800
+
+# vectorized function for indicating time window
+get_time_window <- function(t){
+  ifelse(t >= p2.window.start & t < p2.window.end, "p2",
+  ifelse(t >= n2.window.start & t < n2.window.end, "n2",
+  ifelse(t >= p3.window.start & t < p3.window.end, "p3",
+  ifelse(t >= lpp.window.start & t < lpp.window.end, "lpp",
+  "other"))))
+}
+```
+
+```{r}
+```
+
+```{r}
+#| label: Calculate mean voltage in all time windows for each trial
+#| include: false
+
+time_window_data <- eeg_data %>%
+  filter(electrode %in% c("Cz", "Pz")) %>%
+  mutate(erp_component = get_time_window(t)) %>%
+  filter(erp_component != "other") %>%
+  group_by(subject, electrode, word_type, is_word, erp_component) %>%
+  summarize(v = mean(v)) %>%
+  mutate(word_category = ifelse(word_type %in% c("fashion", "moral"), "category", "non-category"),
+         category = ifelse(word_type %in% c("fashion", "non-fashion"), "fashion", "moral"))
+```
+
+```{r}
+#| label: Run GEE models for all time windows, fashion data pop-out
+#| include: false
+
+p2_model <- gee(v ~ word_category,
+    id = subject,
+    subset = erp_component == "p2" & category == "fashion" & is_word == TRUE & electrode == "Cz",
+    data = time_window_data,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+p2_model$coefficients
+
+n2_model <- gee(v ~ word_category,
+    id = subject,
+    subset = erp_component == "n2" & category == "fashion"& is_word == TRUE & electrode == "Cz",
+    data = time_window_data,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+n2_model$coefficients
+
+p3_model <- gee(v ~ word_category,
+    id = subject,
+    subset = erp_component == "p3" & category == "fashion"& is_word == TRUE & electrode == "Cz",
+    data = time_window_data,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+p3_model$coefficients
+
+lpp_model <- gee(v ~ word_category,
+    id = subject,
+    subset = erp_component == "lpp" & category == "fashion"& is_word == TRUE & electrode == "Cz",
+    data = time_window_data,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+lpp_model$coefficients
+```
+```{r}
+#| label: Run GEE models for all time windows, moral data pop-out
+#| include: false
+
+p2_model <- gee(v ~ word_category,
+    id = subject,
+    subset = erp_component == "p2" & category == "moral" & is_word == TRUE & electrode == "Cz",
+    data = time_window_data,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+p2_model$coefficients
+
+n2_model <- gee(v ~ word_category,
+    id = subject,
+    subset = erp_component == "n2" & category == "moral" & is_word == TRUE & electrode == "Cz",
+    data = time_window_data,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+n2_model$coefficients
+
+p3_model <- gee(v ~ word_category,
+    id = subject,
+    subset = erp_component == "p3" & category == "moral"& is_word == TRUE & electrode == "Cz",
+    data = time_window_data,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+p3_model$coefficients
+
+lpp_model <- gee(v ~ word_category,
+    id = subject,
+    subset = erp_component == "lpp" & category == "moral"& is_word == TRUE & electrode == "Cz",
+    data = time_window_data,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+lpp_model$coefficients
+```
+
+```{r}
+#| label: Run GEE models for all time windows, moral data word non-word
+#| include: false
+
+p2_model <- gee(v ~ is_word,
+    id = subject,
+    subset = erp_component == "p2" & category == "moral",
+    data = time_window_data,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+p2_model$coefficients
+
+n2_model <- gee(v ~ is_word,
+    id = subject,
+    subset = erp_component == "n2" & category == "moral",
+    data = time_window_data,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+n2_model$coefficients
+
+p3_model <- gee(v ~ is_word,
+    id = subject,
+    subset = erp_component == "p3" & category == "moral",
+    data = time_window_data,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+p3_model$coefficients
+
+lpp_model <- gee(v ~ is_word,
+    id = subject,
+    subset = erp_component == "lpp" & category == "moral",
+    data = time_window_data,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+lpp_model$coefficients
+
+```
+
+```{r}
+#| label: Run GEE models for all time windows, fashion data word non-word
+#| include: false
+
+p2_model <- gee(v ~ is_word,
+    id = subject,
+    subset = erp_component == "p2" & category == "fashion",
+    data = time_window_data,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+p2_model$coefficients
+
+n2_model <- gee(v ~ is_word,
+    id = subject,
+    subset = erp_component == "n2" & category == "fashion",
+    data = time_window_data,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+n2_model$coefficients
+
+p3_model <- gee(v ~ is_word,
+    id = subject,
+    subset = erp_component == "p3" & category == "fashion",
+    data = time_window_data,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+p3_model$coefficients
+
+lpp_model <- gee(v ~ is_word,
+    id = subject,
+    subset = erp_component == "lpp" & category == "fashion",
+    data = time_window_data,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+lpp_model$coefficients
+
 ```
