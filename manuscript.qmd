@@ -53,6 +53,13 @@ exclude_for_fashion_twice_subjects <- behavioral_data %>%
 ```
 
 ```{r}
+#| label: Exclude very poor EEG recordings
+#| include: false
+
+exclude_for_eeg_quality <- c("34")
+```
+
+```{r}
 #| label: Flip responses for subject 01, 36 moral words
 #| include: false
 
@@ -98,7 +105,7 @@ exclude_for_non_word_response_subjects <- subject_non_word_response_rate %>%
 #| label: Create filtered data set by applying exclusions
 #| include: false
 
-excluded_subjects <- c(exclude_for_fashion_twice_subjects, exclude_for_non_response_subjects, exclude_for_non_word_response_subjects)
+excluded_subjects <- c(exclude_for_fashion_twice_subjects, exclude_for_non_response_subjects, exclude_for_non_word_response_subjects, exclude_for_eeg_quality)
 
 behavioral_data_filtered <- behavioral_data %>%
   filter(!subject_id %in% excluded_subjects)
@@ -113,7 +120,7 @@ n_subjects <- behavioral_data %>% pull(subject_id) %>% unique() %>% length()
 n_subjects_remaining <- behavioral_data_filtered %>% pull(subject_id) %>% unique() %>% length()
 ```
 
-`r n_subjects` subjects participated in the study. After applying the exclusion criteria, `r n_subjects_remaining` subjects remain. `r length(exclude_for_fashion_twice_subjects)` subjects were excluded for receiving fashion words twice due to a technical error, `r length(exclude_for_non_response_subjects)` subjects were excluded for having a non-response rate greater than 50%, and `r length(exclude_for_non_word_response_subjects)` subjects were excluded for having a non-word response rate greater than 90%.
+`r n_subjects` subjects participated in the study. After applying the exclusion criteria, `r n_subjects_remaining` subjects remain. `r length(exclude_for_fashion_twice_subjects)` subjects were excluded for receiving fashion words twice due to a technical error, `r length(exclude_for_eeg_quality)` subjects were excluded for having poor EEG recordings, `r length(exclude_for_non_response_subjects)` subjects were excluded for having a non-response rate greater than 50%, and `r length(exclude_for_non_word_response_subjects)` subjects were excluded for having a non-word response rate greater than 90%.
 
 # Results
 
@@ -215,7 +222,9 @@ mean_fashion_out_category <- subject_level_accuracy %>%
   round(4)* 100
 ```
 
-We found a pop-out effect for both moral and fashion words. In the moral condition, participants were `r mean_moral_in_category`% accurate for moral words and `r mean_moral_out_category`% accurate for non-moral words. This difference was statistically significant in the GEE model, $\beta$ = `r coefficient_moral_pop_out %>% round(3)`, *SE* = `r coefficient_moral_pop_out_se %>% round(3)`, *z* = `r z_moral_pop_out %>% round(3)`, *p* = `r p_moral_pop_out %>% format(scientific=FALSE)`.
+We found a pop-out effect fashion words, but not moral words. 
+
+In the moral condition, participants were `r mean_moral_in_category`% accurate for moral words and `r mean_moral_out_category`% accurate for non-moral words. This difference was not statistically significant in the GEE model, $\beta$ = `r coefficient_moral_pop_out %>% round(3)`, *SE* = `r coefficient_moral_pop_out_se %>% round(3)`, *z* = `r z_moral_pop_out %>% round(3)`, *p* = `r p_moral_pop_out %>% format(scientific=FALSE)`.
 
 In the fashion condition, participants were `r mean_fashion_in_category`% accurate for fashion words and `r mean_fashion_out_category`% accurate for non-fashion words.  This difference was statistically significant in the GEE model, $\beta$ = `r coefficient_fashion_pop_out`, *SE* = `r coefficient_fashion_pop_out_se %>% round(3)`, *z* = `r z_fashion_pop_out %>% round(3)`, *p* = `r p_fashion_pop_out %>% format(scientific=FALSE)`.
 
@@ -226,19 +235,17 @@ In the fashion condition, participants were `r mean_fashion_in_category`% accura
 #| include: false
 
 eeg_data <- read_csv("data/final/eeg.csv", col_types = "cdcllcdc") %>%
-  filter(!subject %in% excluded_subjects) %>%
-  filter(subject != "34") # really few usable segments
+  filter(!subject %in% excluded_subjects)
 ```
 
 ```{r}
-#| label: Flip subject 01s responses
+#| label: Flip subject 01s, 1/2 36s responses
 #| include: false
 
 eeg_data <- eeg_data %>%
   mutate(correct = ifelse(subject == "01", !correct, correct)) %>%
   mutate(correct = ifelse(subject == "36" & word_type == "moral", !correct, correct))
 ```
-
 
 ```{r}
 #| label: Subject ERPs
@@ -266,12 +273,13 @@ grand_average <- subject_eeg %>%
 #| label: fig-grand-averages
 #| fig-width: 10
 #| fig-height: 8
-#| fig-cap: Grand average waveforms. Shaded areas represent +/- 1 SE.
+#| fig-cap: Grand average waveforms. Shaded areas represent +/- 1 SE. Dotted vertical lines represent the time windows of interest.
 #| echo: false
 
 ggplot(grand_average, aes(x=t, y=M, color=is_word, linetype=word_category)) +
   geom_hline(yintercept = 0)+
   geom_vline(xintercept = 0)+
+  geom_vline(xintercept = c(200, 250, 350, 600, 800), linetype="dotted", alpha=0.6)+
   geom_ribbon(aes(ymin=M-SE, ymax=M+SE, fill=is_word), alpha=0.2, color=NA)+
   geom_line()+
   scale_x_continuous(breaks=c(0,500, 1000))+
