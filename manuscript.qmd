@@ -35,7 +35,7 @@ osf_retrieve_node("ngtha") %>%
 #| label: Load the behavioral data
 #| include: false
 
-behavioral_data <- read_csv('data/final/behavioral.csv')
+behavioral_data <- read_csv('data/phase_2/final/behavioral.csv')
 ```
 
 ## Participants
@@ -234,7 +234,7 @@ In the fashion condition, participants were `r mean_fashion_in_category`% accura
 #| label: Load eeg data
 #| include: false
 
-eeg_data <- read_csv("data/final/eeg.csv", col_types = "cdcllcdc") %>%
+eeg_data <- read_csv("data/phase_2/final/eeg.csv", col_types = "cdcllcdc") %>%
   filter(!subject %in% excluded_subjects)
 ```
 

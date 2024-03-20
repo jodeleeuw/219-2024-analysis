@@ -3,7 +3,11 @@ library(dplyr)
 library(readr)
 library(tidyr)
 
-behavior.files <- list.files('data/raw/beh', pattern="json", full.names = T)
+
+which_phase <- "phase_2"
+
+
+behavior.files <- list.files(paste0('data/', which_phase, '/raw/beh'), pattern="json", full.names = T)
 
 merged.data <- lapply(behavior.files, fromJSON) %>% bind_rows()
 
@@ -17,4 +21,4 @@ new_values[-null_positions] <- unlist(response_column, use.names = F)
 
 merged.data$response <- new_values
 
-write_csv(merged.data, file="data/final/behavioral.csv")
+write_csv(merged.data, file=paste0("data/", which_phase, "/final/behavioral.csv"))

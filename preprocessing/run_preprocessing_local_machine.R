@@ -2,21 +2,23 @@ library(readr)
 library(stringr)
 source("preprocessing/preprocessing-eeg-functions.R")
 
-subjects <- list.files('data/raw/beh/', pattern="json") %>% 
+which_phase <- "phase_2"
+
+subjects <- list.files(paste0('data/', which_phase, '/raw/beh/'), pattern="json") %>% 
   str_extract("[0-9]*.json") %>%
   str_remove(".json")
 
 for(subject in subjects){
   
-  final.path <- paste0("data/preprocessed/subject-", subject,"-epochs.csv")
+  final.path <- paste0("data/", which_phase, "/preprocessed/subject-", subject,"-epochs.csv")
   print(paste0("Working on ",subject))
   if(file.exists(final.path)){
     print(paste0("epochs.csv already exists - skipping"))
     next
   }
   tryCatch({
-    eeg.file <- list.files('data/raw/eeg', pattern=paste0("subject-", subject), full.names = T)
-    beh.file <- paste0('data/raw/beh/219_2024_behavioral_', subject,'.json')
+    eeg.file <- list.files(paste0('data/', which_phase, '/raw/eeg'), pattern=paste0("subject-", subject), full.names = T)
+    beh.file <- paste0('data/', which_phase, '/raw/beh/219_2024_', if_else(which_phase=="phase_2", "v2_", ""), 'behavioral_', subject,'.json')
     
     preprocessed.data <- preprocess_eeg(
       file = eeg.file, 
@@ -34,7 +36,7 @@ for(subject in subjects){
       eye_threshold = 70,
       which_electrodes = c("Fp1", "Fp2", "Cz", "Pz"))
     
-    write_csv(preprocessed.data, file=paste0("data/preprocessed/subject-", subject,"-epochs.csv"))
+    write_csv(preprocessed.data, file=paste0("data/", which_phase, "/preprocessed/subject-", subject,"-epochs.csv"))
   },
   error = function(cond){
     message(cond)
