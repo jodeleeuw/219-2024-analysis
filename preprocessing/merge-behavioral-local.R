@@ -3,9 +3,7 @@ library(dplyr)
 library(readr)
 library(tidyr)
 
-
 which_phase <- "phase_2"
-
 
 behavior.files <- list.files(paste0('data/', which_phase, '/raw/beh'), pattern="json", full.names = T)
 
