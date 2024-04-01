@@ -250,7 +250,7 @@ eeg_data_study_1 <- read_csv("data/phase_1/final/eeg.csv", col_types = "cdcllcdc
 
 eeg_data_key_corrected_study_1 <- eeg_data_study_1 %>%
   mutate(correct = ifelse(subject == "01", !correct, correct)) %>%
-  mutate(correct = ifelse(subject == "36" & word_type == "moral", !correct, correct))
+  mutate(correct = ifelse(subject == "36" & (word_type == "moral" | word_type == "non-moral"), !correct, correct))
 ```
 
 ```{r}
@@ -341,12 +341,12 @@ get_time_window <- function(t){
 #| label: Calculate mean voltage in all time windows for each trial for study 1
 #| include: false
 
-time_window_data_study_1 <- eeg_data_study_1 %>%
+time_window_data_study_1 <- eeg_data_key_corrected_study_1 %>%
   filter(electrode %in% c("Cz", "Pz")) %>%
   filter(correct == TRUE) %>%
   mutate(erp_component = get_time_window(t)) %>%
   filter(erp_component != "other") %>%
-  group_by(subject, electrode, word_type, is_word, erp_component) %>%
+  group_by(subject, event_id, electrode, word_type, is_word, erp_component) %>%
   summarize(v = mean(v)) %>%
   mutate(word_category = ifelse(word_type %in% c("fashion", "moral"), "category", "non-category"),
          category = ifelse(word_type %in% c("fashion", "non-fashion"), "fashion", "moral"))
@@ -528,7 +528,7 @@ lpp_model_moral_popout_p_study_1 <- (1 - pnorm(abs(lpp_model_moral_popout_z_stud
 
 ```
 
-In the moral condition, there were no significant differences between moral and non-moral words in the P2 window ($\beta$ = `r p2_model_moral_popout_beta_study_1 %>% round(3)`, *SE* = `r p2_model_moral_popout_se_study_1 %>% round(3)`, *z* = `r p2_model_moral_popout_z_study_1 %>% round(3)`, *p* = `r p2_model_moral_popout_p_study_1 %>% format(scientific=FALSE)`), N2 window ($\beta$ = `r n2_model_moral_popout_beta_study_1 %>% round(3)`, *SE* = `r n2_model_moral_popout_se_study_1 %>% round(3)`, *z* = `r n2_model_moral_popout_z_study_1 %>% round(3)`, *p* = `r n2_model_moral_popout_p_study_1 %>% format(scientific=FALSE)`), P3 window ($\beta$ = `r p3_model_moral_popout_beta_study_1 %>% round(3)`, *SE* = `r p3_model_moral_popout_se_study_1 %>% round(3)`, *z* = `r p3_model_moral_popout_z_study_1 %>% round(3)`, *p* = `r p3_model_moral_popout_p_study_1 %>% format(scientific=FALSE)`), and the LPP window ($\beta$ = `r lpp_model_moral_popout_beta_study_1 %>% round(3)`, *SE* = `r lpp_model_moral_popout_se_study_1 %>% round(3)`, *z* = `r lpp_model_moral_popout_z_study_1 %>% round(3)`, *p* = `r lpp_model_moral_popout_p_study_1 %>% format(scientific=FALSE)`).
+In the moral condition, there was a significant difference between moral and non-moral words in the P2 window ($\beta$ = `r p2_model_moral_popout_beta_study_1 %>% round(3)`, *SE* = `r p2_model_moral_popout_se_study_1 %>% round(3)`, *z* = `r p2_model_moral_popout_z_study_1 %>% round(3)`, *p* = `r p2_model_moral_popout_p_study_1 %>% format(scientific=FALSE)`), but this difference was in the opposite direction predicted by Gantman et al. (2020). There were no significant differences between moral and non-moral words in the N2 window ($\beta$ = `r n2_model_moral_popout_beta_study_1 %>% round(3)`, *SE* = `r n2_model_moral_popout_se_study_1 %>% round(3)`, *z* = `r n2_model_moral_popout_z_study_1 %>% round(3)`, *p* = `r n2_model_moral_popout_p_study_1 %>% format(scientific=FALSE)`), P3 window ($\beta$ = `r p3_model_moral_popout_beta_study_1 %>% round(3)`, *SE* = `r p3_model_moral_popout_se_study_1 %>% round(3)`, *z* = `r p3_model_moral_popout_z_study_1 %>% round(3)`, *p* = `r p3_model_moral_popout_p_study_1 %>% format(scientific=FALSE)`), and the LPP window ($\beta$ = `r lpp_model_moral_popout_beta_study_1 %>% round(3)`, *SE* = `r lpp_model_moral_popout_se_study_1 %>% round(3)`, *z* = `r lpp_model_moral_popout_z_study_1 %>% round(3)`, *p* = `r lpp_model_moral_popout_p_study_1 %>% format(scientific=FALSE)`).
 
 ```{r}
 #| label: Run GEE models for all time windows, fashion data pop-out, study 1
@@ -584,7 +584,7 @@ lpp_model_fashion_popout_p_study_1 <- (1 - pnorm(abs(lpp_model_fashion_popout_z_
 
 ```
 
-In the fashion condition, there fashion words elicited a more positive ERP than non-fashion words in the P3 window ($\beta$ = `r p3_model_fashion_popout_beta_study_1 %>% round(3)`, *SE* = `r p3_model_fashion_popout_se_study_1 %>% round(3)`, *z* = `r p3_model_fashion_popout_z_study_1 %>% round(3)`, *p* = `r p3_model_fashion_popout_p_study_1 %>% format(scientific=FALSE)`). There was no significant difference in the P2 window, ($\beta$ = `r p2_model_fashion_popout_beta_study_1 %>% round(3)`, *SE* = `r p2_model_fashion_popout_se_study_1 %>% round(3)`, *z* = `r p2_model_fashion_popout_z_study_1 %>% round(3)`, *p* = `r p2_model_fashion_popout_p_study_1 %>% format(scientific=FALSE)`), N2 window ($\beta$ = `r n2_model_fashion_popout_beta_study_1 %>% round(3)`, *SE* = `r n2_model_fashion_popout_se_study_1 %>% round(3)`, *z* = `r n2_model_fashion_popout_z_study_1 %>% round(3)`, *p* = `r n2_model_fashion_popout_p_study_1 %>% format(scientific=FALSE)`), and LPP window ($\beta$ = `r lpp_model_fashion_popout_beta_study_1 %>% round(3)`, *SE* = `r lpp_model_fashion_popout_se_study_1 %>% round(3)`, *z* = `r lpp_model_fashion_popout_z_study_1 %>% round(3)`, *p* = `r lpp_model_fashion_popout_p_study_1 %>% format(scientific=FALSE)`).
+In the fashion condition, there fashion words elicited a more positive ERP than non-fashion words in the P3 window ($\beta$ = `r p3_model_fashion_popout_beta_study_1 %>% round(3)`, *SE* = `r p3_model_fashion_popout_se_study_1 %>% round(3)`, *z* = `r p3_model_fashion_popout_z_study_1 %>% round(3)`, *p* = `r p3_model_fashion_popout_p_study_1 %>% format(scientific=FALSE)`) and LPP window ($\beta$ = `r lpp_model_fashion_popout_beta_study_1 %>% round(3)`, *SE* = `r lpp_model_fashion_popout_se_study_1 %>% round(3)`, *z* = `r lpp_model_fashion_popout_z_study_1 %>% round(3)`, *p* = `r lpp_model_fashion_popout_p_study_1 %>% format(scientific=FALSE)`). There was no significant difference in the P2 window ($\beta$ = `r p2_model_fashion_popout_beta_study_1 %>% round(3)`, *SE* = `r p2_model_fashion_popout_se_study_1 %>% round(3)`, *z* = `r p2_model_fashion_popout_z_study_1 %>% round(3)`, *p* = `r p2_model_fashion_popout_p_study_1 %>% format(scientific=FALSE)`) and N2 window ($\beta$ = `r n2_model_fashion_popout_beta_study_1 %>% round(3)`, *SE* = `r n2_model_fashion_popout_se_study_1 %>% round(3)`, *z* = `r n2_model_fashion_popout_z_study_1 %>% round(3)`, *p* = `r n2_model_fashion_popout_p_study_1 %>% format(scientific=FALSE)`).
 
 ## Experiment 2
 
