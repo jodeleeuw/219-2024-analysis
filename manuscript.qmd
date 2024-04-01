@@ -30,7 +30,7 @@ This is a replication of the study by Gantman et al. (2020). Replications are im
 #| include: false
 osf_retrieve_node("ngtha") %>%
   osf_ls_files() %>%
-  osf_download(path="data/phase_1/final", conflicts="skip")
+  osf_download(path="data/phase_1/final/", conflicts="skip")
 ```
 
 ```{r}
@@ -596,7 +596,7 @@ In the fashion condition, there fashion words elicited a more positive ERP than 
 #| include: false
 osf_retrieve_node("x5byq") %>%
   osf_ls_files() %>%
-  osf_download(path="data/phase_2/final", conflicts="skip")
+  osf_download(path="data/phase_2/final/", conflicts="skip")
 ```
 
 ```{r}
