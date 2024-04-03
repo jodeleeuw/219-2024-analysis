@@ -21,7 +21,7 @@ for(subject in subjects){
     beh.file <- paste0('data/', which_phase, '/raw/beh/219_2024_', if_else(which_phase=="phase_2", "v2_", ""), 'behavioral_', subject,'.json')
     
     preprocessed.data <- preprocess_eeg(
-      file = eeg.file, 
+      eeg.file = eeg.file, 
       beh.file = beh.file,
       subject_id = subject,
       sampling_rate = 500,
