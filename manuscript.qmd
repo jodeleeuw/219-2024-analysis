@@ -40,6 +40,37 @@ osf_retrieve_node("ngtha") %>%
 behavioral_data_study_1 <- read_csv('data/phase_1/final/behavioral.csv')
 ```
 
+```{r}
+#| label: Load study 1 eeg data
+#| include: false
+
+eeg_data_study_1 <- read_csv("data/phase_1/final/eeg.csv", col_types = "cdcllcdc")
+```
+
+```{r}
+#| label: Flip study 1 subject 01s, 1/2 36s responses
+#| include: false
+
+eeg_data_key_corrected_study_1 <- eeg_data_study_1 %>%
+  mutate(correct = ifelse(subject == "01", !correct, correct)) %>%
+  mutate(correct = ifelse(subject == "36" & (word_type == "moral" | word_type == "non-moral"), !correct, correct))
+```
+
+```{r}
+#| label: Count the number of study 1 good segments per subject
+#| include: false
+
+count_good_trials_study_1 <- eeg_data_study_1 %>%
+  filter(t==0, electrode=="Cz") %>%
+  group_by(subject) %>%
+  summarize(n=n()) %>%
+  mutate(percent = (n/600)*100)
+
+mean_good_trials_study_1 <- mean(count_good_trials_study_1$n)
+sd_good_trials_study_1 <- sd(count_good_trials_study_1$n)
+
+```
+
 #### Participants
 
 ```{r}
@@ -58,7 +89,9 @@ exclude_for_fashion_twice_subjects_study_1 <- behavioral_data_study_1 %>%
 #| label: Exclude very poor EEG recordings for study 1
 #| include: false
 
-exclude_for_eeg_quality_study_1 <- c("34")
+exclude_for_eeg_quality_study_1 <- count_good_trials_study_1 %>%
+  filter(percent < 75) %>% 
+  pull(subject)
 ```
 
 ```{r}
@@ -237,23 +270,6 @@ In the fashion condition, participants were `r mean_fashion_in_category_study_1`
 #### EEG
 
 ```{r}
-#| label: Load study 1 eeg data
-#| include: false
-
-eeg_data_study_1 <- read_csv("data/phase_1/final/eeg.csv", col_types = "cdcllcdc") %>%
-  filter(!subject %in% excluded_subjects_study_1)
-```
-
-```{r}
-#| label: Flip study 1 subject 01s, 1/2 36s responses
-#| include: false
-
-eeg_data_key_corrected_study_1 <- eeg_data_study_1 %>%
-  mutate(correct = ifelse(subject == "01", !correct, correct)) %>%
-  mutate(correct = ifelse(subject == "36" & (word_type == "moral" | word_type == "non-moral"), !correct, correct))
-```
-
-```{r}
 #| label: Compute study 1 subject ERPs
 #| include: false
 
@@ -296,22 +312,6 @@ ggplot(grand_average_study_1, aes(x=t, y=M, color=is_word, linetype=word_categor
   labs(x="Time since word onset (ms)", y="Voltage (uV)", color="Is word?", fill="Is word?", linetype="Word Category")+
   theme_minimal(base_size=12)+
   theme(panel.grid = element_blank())
-```
-
-
-```{r}
-#| label: Count the number of study 1 good segments per subject
-#| include: false
-
-count_good_trials_study_1 <- eeg_data_study_1 %>%
-  filter(t==0, electrode=="Cz") %>%
-  group_by(subject) %>%
-  summarize(n=n()) %>%
-  mutate(percent = (n/600)*100)
-
-mean_good_trials_study_1 <- mean(count_good_trials_study_1$n)
-sd_good_trials_study_1 <- sd(count_good_trials_study_1$n)
-
 ```
 
 ```{r}
@@ -606,6 +606,27 @@ osf_retrieve_node("x5byq") %>%
 behavioral_data <- read_csv('data/phase_2/final/behavioral.csv')
 ```
 
+```{r}
+#| label: Load eeg data
+#| include: false
+
+eeg_data <- read_csv("data/phase_2/final/eeg.csv", col_types = "cdcllcdc") %>%
+  filter(!subject %in% excluded_subjects)
+```
+
+```{r}
+#| label: Count the number of good segments per subject
+#| include: false
+
+
+count_good_trials <- eeg_data %>%
+  filter(t==0, electrode=="Cz") %>%
+  group_by(subject) %>%
+  summarize(n=n()) %>%
+  mutate(percent = (n/600)*100)
+
+```
+
 #### Participants
 
 ```{r}
@@ -624,7 +645,9 @@ exclude_for_fashion_twice_subjects <- behavioral_data %>%
 #| label: Exclude very poor EEG recordings
 #| include: false
 
-exclude_for_eeg_quality <- c()
+exclude_for_eeg_quality <- count_good_trials %>%
+  filter(percent < 75) %>%
+  pull(subject)
 ```
 
 ```{r}
@@ -782,13 +805,7 @@ mean_fashion_out_category <- subject_level_accuracy %>%
 
 #### EEG
 
-```{r}
-#| label: Load eeg data
-#| include: false
 
-eeg_data <- read_csv("data/phase_2/final/eeg.csv", col_types = "cdcllcdc") %>%
-  filter(!subject %in% excluded_subjects)
-```
 
 ```{r}
 #| label: Subject ERPs
@@ -833,23 +850,6 @@ ggplot(grand_average, aes(x=t, y=M, color=is_word, linetype=word_category)) +
   labs(x="Time since word onset (ms)", y="Voltage (uV)", color="Is word?", fill="Is word?", linetype="Word Category")+
   theme_minimal(base_size=12)+
   theme(panel.grid = element_blank())
-```
-
-
-```{r}
-#| label: Count the number of good segments per subject
-#| include: false
-
-
-count_good_trials <- eeg_data %>%
-  filter(t==0, electrode=="Cz") %>%
-  group_by(subject) %>%
-  summarize(n=n()) %>%
-  mutate(percent = (n/600)*100)
-
-mean_good_trials <- mean(count_good_trials$n)
-sd_good_trials <- sd(count_good_trials$n)
-
 ```
 
 
