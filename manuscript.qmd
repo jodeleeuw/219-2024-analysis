@@ -274,6 +274,7 @@ In the fashion condition, participants were `r mean_fashion_in_category_study_1`
 #| include: false
 
 subject_eeg_study_1 <- eeg_data_key_corrected_study_1 %>%
+  filter(!subject %in% excluded_subjects_study_1) %>%
   filter(electrode %in% c("Cz", "Pz")) %>%
   filter(correct == TRUE) %>%
   group_by(subject, t, electrode, word_type, is_word) %>%
@@ -342,6 +343,7 @@ get_time_window <- function(t){
 #| include: false
 
 time_window_data_study_1 <- eeg_data_key_corrected_study_1 %>%
+  filter(!subject %in% excluded_subjects_study_1) %>%
   filter(electrode %in% c("Cz", "Pz")) %>%
   filter(correct == TRUE) %>%
   mutate(erp_component = get_time_window(t)) %>%
@@ -610,14 +612,12 @@ behavioral_data <- read_csv('data/phase_2/final/behavioral.csv')
 #| label: Load eeg data
 #| include: false
 
-eeg_data <- read_csv("data/phase_2/final/eeg.csv", col_types = "cdcllcdc") %>%
-  filter(!subject %in% excluded_subjects)
+eeg_data <- read_csv("data/phase_2/final/eeg.csv", col_types = "cdcllcdc")
 ```
 
 ```{r}
 #| label: Count the number of good segments per subject
 #| include: false
-
 
 count_good_trials <- eeg_data %>%
   filter(t==0, electrode=="Cz") %>%
@@ -812,6 +812,7 @@ mean_fashion_out_category <- subject_level_accuracy %>%
 #| include: false
 
 subject_eeg <- eeg_data %>%
+  filter(!subject %in% excluded_subjects) %>%
   filter(electrode %in% c("Cz", "Pz")) %>%
   filter(correct == TRUE) %>%
   group_by(subject, t, electrode, word_type, is_word) %>%
@@ -858,6 +859,7 @@ ggplot(grand_average, aes(x=t, y=M, color=is_word, linetype=word_category)) +
 #| include: false
 
 time_window_data <- eeg_data %>%
+  filter(!subject %in% excluded_subjects) %>%
   filter(electrode %in% c("Cz", "Pz")) %>%
   mutate(erp_component = get_time_window(t)) %>%
   filter(erp_component != "other") %>%
