@@ -25,11 +25,18 @@ jobs:
       - name: Download OSF data
         run: |
           mkdir data
-          mkdir data/raw
-          mkdir data/preprocessed
-          mkdir data/final
-          mkdir data/raw/eeg
-          mkdir data/raw/beh
+          mkdir data/phase_1
+          mkdir data/phase_1/raw
+          mkdir data/phase_1/preprocessed
+          mkdir data/phase_1/final
+          mkdir data/phase_1/raw/eeg
+          mkdir data/phase_1/raw/beh
+          mkdir data/phase_2
+          mkdir data/phase_2/raw
+          mkdir data/phase_2/preprocessed
+          mkdir data/phase_2/final
+          mkdir data/phase_2/raw/eeg
+          mkdir data/phase_2/raw/beh
           Rscript preprocessing/download-raw-data-from-osf.R
 
       - name: Preprocess data
