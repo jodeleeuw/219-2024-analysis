@@ -1,0 +1,47 @@
+on:
+  push:
+    paths: ['**.qmd']
+  workflow_dispatch:
+
+name: render-manuscript
+
+jobs:
+  render-quarto:
+    runs-on: windows-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - uses: r-lib/actions/setup-r@v2
+
+      - name: Install R packages
+        run: |
+          Rscript -e 'install.packages(c("osfr", "tidyverse", "jsonlite", "edfReader", "fuzzyjoin", "ravetools", "eegkit", "gee"))'
+
+      - name: Download OSF data
+        run: |
+          mkdir data
+          mkdir data/phase_1
+          mkdir data/phase_1/raw
+          mkdir data/phase_1/preprocessed
+          mkdir data/phase_1/final
+          mkdir data/phase_1/raw/eeg
+          mkdir data/phase_1/raw/beh
+          mkdir data/phase_2
+          mkdir data/phase_2/raw
+          mkdir data/phase_2/preprocessed
+          mkdir data/phase_2/final
+          mkdir data/phase_2/raw/eeg
+          mkdir data/phase_2/raw/beh
+          Rscript preprocessing/download-raw-data-from-osf.R
+
+      - name: Preprocess data
+        run: |
+          Rscript preprocessing/run-preprocessing_local_machine.R
+          Rscript preprocessing/merge-local.R
+          Rscript preprocessing/merge-behavioral-local.R
+          
