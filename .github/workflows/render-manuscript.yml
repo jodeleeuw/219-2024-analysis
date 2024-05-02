@@ -20,7 +20,7 @@ jobs:
 
       - name: Install R packages
         run: |
-          Rscript -e 'install.packages("osfr", "tidyverse", "jsonlite", "edfReader", "fuzzyjoin", "ravetools", "eegkit", "gee")'
+          Rscript -e 'install.packages(c("osfr", "tidyverse", "jsonlite", "edfReader", "fuzzyjoin", "ravetools", "eegkit", "gee"))'
 
       - name: Download OSF data
         run: |
