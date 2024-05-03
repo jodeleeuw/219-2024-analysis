@@ -42,6 +42,11 @@ jobs:
       - name: Preprocess data
         run: |
           Rscript preprocessing/run-preprocessing_local_machine.R
+          
+      - name: Merge EEG data
+        run: |
           Rscript preprocessing/merge-local.R
+
+      - name: Merge Behavioral data
           Rscript preprocessing/merge-behavioral-local.R
           
