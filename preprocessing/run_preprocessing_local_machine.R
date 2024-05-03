@@ -4,10 +4,13 @@ source("preprocessing/preprocessing-eeg-functions.R")
 
 which_phase <- "phase_2"
 
+list.files(paste0('data/', which_phase, '/raw/beh/')
+
 subjects <- list.files(paste0('data/', which_phase, '/raw/beh/'), pattern="json") %>% 
   str_extract("[0-9]*.json") %>%
   str_remove(".json")
 
+cat(subjects)
 print(subjects)
 
 for(subject in subjects){
