@@ -20,7 +20,7 @@ jobs:
 
       - name: Install R packages
         run: |
-          Rscript -e 'install.packages(c("osfr", "tidyverse", "jsonlite", "edfReader", "fuzzyjoin", "ravetools", "eegkit", "gee"))'
+          Rscript -e 'install.packages(c("osfr", "tidyverse", "jsonlite", "edfReader", "fuzzyjoin", "ravetools", "eegkit", "gee", "knitr", "rmarkdown", "downlit", "xml2"))'
 
       - name: Download OSF data
         run: |
@@ -50,6 +50,10 @@ jobs:
       - name: Merge EEG data
         run: |
           Rscript preprocessing/mege-local.R
+
+      - name: Render Quarto Project
+        uses: quarto-dev/quarto-actions/render@v2
+        
 
       
           
