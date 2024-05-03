@@ -257,7 +257,7 @@ mean_fashion_in_category_study_1 <- subject_level_accuracy_study_1 %>%
 mean_fashion_out_category_study_1 <- subject_level_accuracy_study_1 %>%
   filter(is_word == TRUE & category == "fashion" & word_category == "non-category") %>%
   pull(accuracy) %>%
-  mean() %>% 
+  mean() %>%
   round(4)* 100
 ```
 
@@ -605,21 +605,21 @@ osf_retrieve_node("x5byq") %>%
 #| label: Load the behavioral data
 #| include: false
 
-behavioral_data <- read_csv('data/phase_2/final/behavioral.csv')
+behavioral_data_study_2 <- read_csv('data/phase_2/final/behavioral.csv')
 ```
 
 ```{r}
 #| label: Load eeg data
 #| include: false
 
-eeg_data <- read_csv("data/phase_2/final/eeg.csv", col_types = "cdcllcdc")
+eeg_data_study_2 <- read_csv("data/phase_2/final/eeg.csv", col_types = "cdcllcdc")
 ```
 
 ```{r}
 #| label: Count the number of good segments per subject
 #| include: false
 
-count_good_trials <- eeg_data %>%
+count_good_trials_study_2 <- eeg_data_study_2 %>%
   filter(t==0, electrode=="Cz") %>%
   group_by(subject) %>%
   summarize(n=n()) %>%
@@ -633,7 +633,7 @@ count_good_trials <- eeg_data %>%
 #| label: Filter out the subjects who got fashion words twice due to programming error
 #| include: false
 
-exclude_for_fashion_twice_subjects <- behavioral_data %>%
+exclude_for_fashion_twice_subjects_study_2 <- behavioral_data_study_2 %>%
   filter(phase == "fashion", task == "response") %>%
   group_by(subject_id) %>%
   count() %>%
@@ -641,11 +641,18 @@ exclude_for_fashion_twice_subjects <- behavioral_data %>%
   pull(subject_id)
 ```
 
+```{r} 
+#| label: Filter out a subject who saw the first 100 trials twice because of EEG recording error
+#| include: false
+
+exclude_for_repeated_viewing_study_2 <- c("14")
+```
+
 ```{r}
 #| label: Exclude very poor EEG recordings
 #| include: false
 
-exclude_for_eeg_quality <- count_good_trials %>%
+exclude_for_eeg_quality_study_2 <- count_good_trials_study_2 %>%
   filter(percent < 75) %>%
   pull(subject)
 ```
@@ -654,13 +661,13 @@ exclude_for_eeg_quality <- count_good_trials %>%
 #| label: Get subject non-response rate
 #| include: false
 
-subject_non_response_rate <- behavioral_data %>%
+subject_non_response_rate_study_2 <- behavioral_data_study_2 %>%
   filter(phase == "moral" | phase == "fashion") %>%
   filter(task == "response") %>%
   group_by(subject_id) %>%
   summarise(non_response_rate = mean(is.na(rt)))
 
-exclude_for_non_response_subjects <- subject_non_response_rate %>%
+exclude_for_non_response_subjects_study_2 <- subject_non_response_rate_study_2 %>%
   filter(non_response_rate > 0.5) %>%
   pull(subject_id)
 ```
@@ -669,7 +676,7 @@ exclude_for_non_response_subjects <- subject_non_response_rate %>%
 #| label: Compute subject non-word response rate
 #| include: false
 
-subject_non_word_response_rate <- behavioral_data %>%
+subject_non_word_response_rate_study_2 <- behavioral_data_study_2 %>%
   filter(phase == "moral" | phase == "fashion") %>%
   filter(task == "response") %>%
   group_by(subject_id) %>%
@@ -678,7 +685,7 @@ subject_non_word_response_rate <- behavioral_data %>%
     (is_word == TRUE & correct == FALSE), 1, 0)) %>%
   summarize(non_word_response_rate = mean(non_word_response))
 
-exclude_for_non_word_response_subjects <- subject_non_word_response_rate %>%
+exclude_for_non_word_response_subjects_study_2 <- subject_non_word_response_rate_study_2 %>%
   filter(non_word_response_rate > 0.9) %>%
   pull(subject_id)
 ```
@@ -687,22 +694,28 @@ exclude_for_non_word_response_subjects <- subject_non_word_response_rate %>%
 #| label: Create filtered data set by applying exclusions
 #| include: false
 
-excluded_subjects <- c(exclude_for_fashion_twice_subjects, exclude_for_non_response_subjects, exclude_for_non_word_response_subjects, exclude_for_eeg_quality)
+excluded_subjects_study_2 <- c(
+  exclude_for_fashion_twice_subjects_study_2, 
+  exclude_for_non_response_subjects_study_2, 
+  exclude_for_non_word_response_subjects_study_2, 
+  exclude_for_eeg_quality_study_2,
+  exclude_for_repeated_viewing_study_2
+)
 
-behavioral_data_filtered <- behavioral_data %>%
-  filter(!subject_id %in% excluded_subjects)
+behavioral_data_filtered_study_2 <- behavioral_data_study_2 %>%
+  filter(!subject_id %in% excluded_subjects_study_2)
 ```
 
 ```{r}
 #| label: Count the number of subjects and subjects remaining
 #| include: false
 
-n_subjects <- behavioral_data %>% pull(subject_id) %>% unique() %>% length()
+n_subjects_study_2 <- behavioral_data_study_2 %>% pull(subject_id) %>% unique() %>% length()
 
-n_subjects_remaining <- behavioral_data_filtered %>% pull(subject_id) %>% unique() %>% length()
+n_subjects_remaining_study_2 <- behavioral_data_filtered_study_2 %>% pull(subject_id) %>% unique() %>% length()
 ```
 
-`r n_subjects` subjects participated in the study. After applying the exclusion criteria, `r n_subjects_remaining` subjects remain. `r length(exclude_for_fashion_twice_subjects)` subjects were excluded for receiving fashion words twice due to a technical error, `r length(exclude_for_eeg_quality)` subjects were excluded for having poor EEG recordings, `r length(exclude_for_non_response_subjects)` subjects were excluded for having a non-response rate greater than 50%, and `r length(exclude_for_non_word_response_subjects)` subjects were excluded for having a non-word response rate greater than 90%.
+`r n_subjects_study_2` subjects participated in the study. After applying the exclusion criteria, `r n_subjects_remaining_study_2` subjects remain. `r length(exclude_for_fashion_twice_subjects_study_2)` subject was excluded for receiving fashion words twice due to a technical error, `r length(exclude_for_repeated_viewing_study_2)` subject was excluded because they saw the first 100 trials twice due to an EEG data recording error, `r length(exclude_for_eeg_quality_study_2)` subjects were excluded for having poor EEG recordings, `r length(exclude_for_non_response_subjects_study_2)` subjects were excluded for having a non-response rate greater than 50%, and `r length(exclude_for_non_word_response_subjects_study_2)` subjects were excluded for having a non-word response rate greater than 90%.
 
 ### Results
 
@@ -712,7 +725,7 @@ n_subjects_remaining <- behavioral_data_filtered %>% pull(subject_id) %>% unique
 #| label: Select relevant test data
 #| include: false
 
-behavioral_data_test_set <- behavioral_data_filtered %>%
+behavioral_data_test_set_study_2 <- behavioral_data_filtered_study_2 %>%
   filter(phase == "moral" | phase == "fashion") %>%
   filter(task == "response") %>%
   select(subject_id, word_type, is_word, correct, rt) %>%
@@ -724,7 +737,7 @@ behavioral_data_test_set <- behavioral_data_filtered %>%
 #| label: Check accuracy
 #| include: false
 
-subject_level_accuracy <- behavioral_data_test_set %>%
+subject_level_accuracy_study_2 <- behavioral_data_test_set_study_2 %>%
   group_by(subject_id, word_category, category, is_word) %>%
   summarise(accuracy = mean(correct), se=sd(correct)/sqrt(n()))
 ```
@@ -734,11 +747,11 @@ subject_level_accuracy <- behavioral_data_test_set %>%
 #| fig-cap: Performance for in-category words and out-of-category words for each participant. Points above the diagonal represent higher accuracy for in-category words. Overall accuracy was much higher than expected. We later discovered this was due to a difference in procedure between our study and the original study. Lines represent +/- 1 SE.
 #| echo: false
 
-behavioral_pop_out_data <- subject_level_accuracy %>%
+behavioral_pop_out_data_study_2 <- subject_level_accuracy_study_2 %>%
   filter(is_word == TRUE) %>%
   pivot_wider(names_from = word_category, values_from = c(accuracy, se))
 
-ggplot(behavioral_pop_out_data, aes(x=`accuracy_non-category`, y=`accuracy_category`))+
+ggplot(behavioral_pop_out_data_study_2, aes(x=`accuracy_non-category`, y=`accuracy_category`))+
   geom_point()+
   geom_linerange(aes(ymin=`accuracy_category`-`se_category`, ymax=`accuracy_category`+`se_category`), linewidth=0.25)+
   geom_linerange(aes(xmin=`accuracy_non-category`-`se_non-category`, xmax=`accuracy_non-category`+`se_non-category`), linewidth=0.25, alpha=0.3)+
@@ -754,65 +767,67 @@ ggplot(behavioral_pop_out_data, aes(x=`accuracy_non-category`, y=`accuracy_categ
 #| label: Models for pop out effects
 #| include: false
 
-behavioral_model_moral_pop_out <- gee(correct ~ word_category,
+behavioral_model_moral_pop_out_study_2 <- gee(correct ~ word_category,
     id = subject_id,
     subset = is_word == TRUE & category == "moral",
-    data = behavioral_data_test_set,
+    data = behavioral_data_test_set_study_2,
     family = binomial,
     corstr = "exchangeable") %>% summary()
 
-coefficient_moral_pop_out <- behavioral_model_moral_pop_out$coefficients[2, 'Estimate']
-coefficient_moral_pop_out_se <- behavioral_model_moral_pop_out$coefficients[2, 'Robust S.E.']
-z_moral_pop_out <- behavioral_model_moral_pop_out$coefficients[2, 'Robust z']
-p_moral_pop_out <- (1 - pnorm(abs(z_moral_pop_out))) * 2
+coefficient_moral_pop_out_study_2 <- behavioral_model_moral_pop_out_study_2$coefficients[2, 'Estimate']
+coefficient_moral_pop_out_se_study_2 <- behavioral_model_moral_pop_out_study_2$coefficients[2, 'Robust S.E.']
+z_moral_pop_out_study_2 <- behavioral_model_moral_pop_out_study_2$coefficients[2, 'Robust z']
+p_moral_pop_out_study_2 <- (1 - pnorm(abs(z_moral_pop_out_study_2))) * 2
 
-fashion_model_moral_pop_out <- gee(correct ~ word_category,
+fashion_model_moral_pop_out_study_2 <- gee(correct ~ word_category,
     id = subject_id,
     subset = is_word == TRUE & category == "fashion",
-    data = behavioral_data_test_set,
+    data = behavioral_data_test_set_study_2,
     family = binomial,
     corstr = "exchangeable") %>% summary()
 
-coefficient_fashion_pop_out <- fashion_model_moral_pop_out$coefficients[2, 'Estimate']
-coefficient_fashion_pop_out_se <- fashion_model_moral_pop_out$coefficients[2, 'Robust S.E.']
-z_fashion_pop_out <- fashion_model_moral_pop_out$coefficients[2, 'Robust z']
-p_fashion_pop_out <- (1 - pnorm(abs(z_fashion_pop_out))) * 2
+coefficient_fashion_pop_out_study_2 <- fashion_model_moral_pop_out_study_2$coefficients[2, 'Estimate']
+coefficient_fashion_pop_out_se_study_2 <- fashion_model_moral_pop_out_study_2$coefficients[2, 'Robust S.E.']
+z_fashion_pop_out_study_2 <- fashion_model_moral_pop_out_study_2$coefficients[2, 'Robust z']
+p_fashion_pop_out_study_2 <- (1 - pnorm(abs(z_fashion_pop_out_study_2))) * 2
   
-mean_moral_in_category <- subject_level_accuracy %>%
+mean_moral_in_category_study_2 <- subject_level_accuracy_study_2 %>%
   filter(is_word == TRUE & category == "moral" & word_category == "category") %>%
   pull(accuracy) %>%
   mean() %>% 
   round(4)* 100
 
-mean_moral_out_category <- subject_level_accuracy %>%
+mean_moral_out_category_study_2 <- subject_level_accuracy_study_2 %>%
   filter(is_word == TRUE & category == "moral" & word_category == "non-category") %>%
   pull(accuracy) %>%
   mean() %>% 
   round(4)* 100
 
-mean_fashion_in_category <- subject_level_accuracy %>%
+mean_fashion_in_category_study_2 <- subject_level_accuracy_study_2 %>%
   filter(is_word == TRUE & category == "fashion" & word_category == "category") %>%
   pull(accuracy) %>%
   mean() %>% 
   round(4)* 100
 
-mean_fashion_out_category <- subject_level_accuracy %>%
+mean_fashion_out_category_study_2 <- subject_level_accuracy_study_2 %>%
   filter(is_word == TRUE & category == "fashion" & word_category == "non-category") %>%
   pull(accuracy) %>%
   mean() %>% 
   round(4)* 100
 ```
 
+In the moral condition, participants were `r mean_moral_in_category_study_2`% accurate for moral words and `r mean_moral_out_category_study_2`% accurate for non-moral words. This difference was not statistically significant in the GEE model, $\beta$ = `r coefficient_moral_pop_out_study_2 %>% round(3)`, *SE* = `r coefficient_moral_pop_out_se_study_2 %>% round(3)`, *z* = `r z_moral_pop_out_study_2 %>% round(3)`, *p* = `r p_moral_pop_out_study_2 %>% format(scientific=FALSE)`.
+
+In the fashion condition, participants were `r mean_fashion_in_category_study_2`% accurate for fashion words and `r mean_fashion_out_category_study_2`% accurate for non-fashion words.  This difference was statistically significant in the GEE model, $\beta$ = `r coefficient_fashion_pop_out_study_2`, *SE* = `r coefficient_fashion_pop_out_se_study_2 %>% round(3)`, *z* = `r z_fashion_pop_out_study_2 %>% round(3)`, *p* = `r p_fashion_pop_out_study_2 %>% format(scientific=FALSE)`.
+
 #### EEG
-
-
 
 ```{r}
 #| label: Subject ERPs
 #| include: false
 
-subject_eeg <- eeg_data %>%
-  filter(!subject %in% excluded_subjects) %>%
+subject_eeg_study_2 <- eeg_data_study_2 %>%
+  filter(!subject %in% excluded_subjects_study_2) %>%
   filter(electrode %in% c("Cz", "Pz")) %>%
   filter(correct == TRUE) %>%
   group_by(subject, t, electrode, word_type, is_word) %>%
@@ -825,7 +840,7 @@ subject_eeg <- eeg_data %>%
 #| label: Grand average computation
 #| include: false
 
-grand_average <- subject_eeg %>%
+grand_average_study_2 <- subject_eeg_study_2 %>%
   group_by(t, electrode, word_category, category, is_word) %>%
   summarize(M = mean(v), SE = sd(v)/sqrt(n()))
 ```
@@ -837,7 +852,7 @@ grand_average <- subject_eeg %>%
 #| fig-cap: Grand average waveforms. Shaded areas represent +/- 1 SE. Dotted vertical lines represent the time windows of interest.
 #| echo: false
 
-ggplot(grand_average, aes(x=t, y=M, color=is_word, linetype=word_category)) +
+ggplot(grand_average_study_2, aes(x=t, y=M, color=is_word, linetype=word_category)) +
   geom_hline(yintercept = 0)+
   geom_vline(xintercept = 0)+
   geom_vline(xintercept = c(200, 250, 350, 600, 800), linetype="dotted", alpha=0.6)+
@@ -858,8 +873,8 @@ ggplot(grand_average, aes(x=t, y=M, color=is_word, linetype=word_category)) +
 #| label: Calculate mean voltage in all time windows for each trial
 #| include: false
 
-time_window_data <- eeg_data %>%
-  filter(!subject %in% excluded_subjects) %>%
+time_window_data_study_2 <- eeg_data_study_2 %>%
+  filter(!subject %in% excluded_subjects_study_2) %>%
   filter(electrode %in% c("Cz", "Pz")) %>%
   mutate(erp_component = get_time_window(t)) %>%
   filter(erp_component != "other") %>%
@@ -869,3 +884,236 @@ time_window_data <- eeg_data %>%
          category = ifelse(word_type %in% c("fashion", "non-fashion"), "fashion", "moral"))
 ```
 
+##### Words vs. Non-Words
+
+Following Gantman et al. (2020), we looked for word vs. non-word ERP effects at each time window at electrode Pz.
+
+```{r}
+#| label: Run GEE models for all time windows, moral data word non-word, study 2
+#| include: false
+
+p2_model_moral_word_nonword_study_2 <- gee(v ~ is_word,
+    id = subject,
+    subset = erp_component == "p2" & category == "moral" & electrode == "Pz",
+    data = time_window_data_study_2,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+p2_model_moral_word_nonword_beta_study_2 <- p2_model_moral_word_nonword_study_2$coefficients[2, 'Estimate']
+p2_model_moral_word_nonword_se_study_2 <- p2_model_moral_word_nonword_study_2$coefficients[2, 'Robust S.E.']
+p2_model_moral_word_nonword_z_study_2 <- p2_model_moral_word_nonword_study_2$coefficients[2, 'Robust z']
+p2_model_moral_word_nonword_p_study_2 <- (1 - pnorm(abs(p2_model_moral_word_nonword_z_study_2))) * 2
+
+n2_model_moral_word_nonword_study_2 <- gee(v ~ is_word,
+    id = subject,
+    subset = erp_component == "n2" & category == "moral" & electrode == "Pz",
+    data = time_window_data_study_2,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+n2_model_moral_word_nonword_beta_study_2 <- n2_model_moral_word_nonword_study_2$coefficients[2, 'Estimate']
+n2_model_moral_word_nonword_se_study_2 <- n2_model_moral_word_nonword_study_2$coefficients[2, 'Robust S.E.']
+n2_model_moral_word_nonword_z_study_2 <- n2_model_moral_word_nonword_study_2$coefficients[2, 'Robust z']
+n2_model_moral_word_nonword_p_study_2 <- (1 - pnorm(abs(n2_model_moral_word_nonword_z_study_2))) * 2
+
+p3_model_moral_word_nonword_study_2 <- gee(v ~ is_word,
+    id = subject,
+    subset = erp_component == "p3" & category == "moral" & electrode == "Pz",
+    data = time_window_data_study_2,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+p3_model_moral_word_nonword_beta_study_2 <- p3_model_moral_word_nonword_study_2$coefficients[2, 'Estimate']
+p3_model_moral_word_nonword_se_study_2 <- p3_model_moral_word_nonword_study_2$coefficients[2, 'Robust S.E.']
+p3_model_moral_word_nonword_z_study_2 <- p3_model_moral_word_nonword_study_2$coefficients[2, 'Robust z']
+p3_model_moral_word_nonword_p_study_2 <- (1 - pnorm(abs(p3_model_moral_word_nonword_z_study_2))) * 2
+
+lpp_model_moral_word_nonword_study_2 <- gee(v ~ is_word,
+    id = subject,
+    subset = erp_component == "lpp" & category == "moral" & electrode == "Pz",
+    data = time_window_data_study_2,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+lpp_model_moral_word_nonword_beta_study_2 <- lpp_model_moral_word_nonword_study_2$coefficients[2, 'Estimate']
+lpp_model_moral_word_nonword_se_study_2 <- lpp_model_moral_word_nonword_study_2$coefficients[2, 'Robust S.E.']
+lpp_model_moral_word_nonword_z_study_2 <- lpp_model_moral_word_nonword_study_2$coefficients[2, 'Robust z']
+lpp_model_moral_word_nonword_p_study_2 <- (1 - pnorm(abs(lpp_model_moral_word_nonword_z_study_2))) * 2
+```
+
+In the moral condition, words elicited a more positive ERP in the P2 window ($\beta$ = `r p2_model_moral_word_nonword_beta_study_2 %>% round(3)`, *SE* = `r p2_model_moral_word_nonword_se_study_2 %>% round(3)`, *z* = `r p2_model_moral_word_nonword_z_study_2 %>% round(3)`, *p* = `r p2_model_moral_word_nonword_p_study_2 %>% format(scientific=FALSE)`), N2 window ($\beta$ = `r n2_model_moral_word_nonword_beta_study_2 %>% round(3)`, *SE* = `r n2_model_moral_word_nonword_se_study_2 %>% round(3)`, *z* = `r n2_model_moral_word_nonword_z_study_2 %>% round(3)`, *p* = `r n2_model_moral_word_nonword_p_study_2 %>% format(scientific=FALSE)`), and P3 window ($\beta$ = `r p3_model_moral_word_nonword_beta_study_2 %>% round(3)`, *SE* = `r p3_model_moral_word_nonword_se_study_2 %>% round(3)`, *z* = `r p3_model_moral_word_nonword_z_study_2 %>% round(3)`, *p* = `r p3_model_moral_word_nonword_p_study_2 %>% format(scientific=FALSE)`). There was no significant effect in the LPP window ($\beta$ = `r lpp_model_moral_word_nonword_beta_study_2 %>% round(3)`, *SE* = `r lpp_model_moral_word_nonword_se_study_2 %>% round(3)`, *z* = `r lpp_model_moral_word_nonword_z_study_2 %>% round(3)`, *p* = `r lpp_model_moral_word_nonword_p_study_2 %>% format(scientific=FALSE)`).
+
+
+```{r}
+#| label: Run GEE models for all time windows, fashion data word non-word, study 2
+#| include: false
+
+p2_model_fashion_word_nonword_study_2 <- gee(v ~ is_word,
+    id = subject,
+    subset = erp_component == "p2" & category == "fashion" & electrode == "Pz",
+    data = time_window_data_study_2,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+p2_model_fashion_word_nonword_beta_study_2 <- p2_model_fashion_word_nonword_study_2$coefficients[2, 'Estimate']
+p2_model_fashion_word_nonword_se_study_2 <- p2_model_fashion_word_nonword_study_2$coefficients[2, 'Robust S.E.']
+p2_model_fashion_word_nonword_z_study_2 <- p2_model_fashion_word_nonword_study_2$coefficients[2, 'Robust z']
+p2_model_fashion_word_nonword_p_study_2 <- (1 - pnorm(abs(p2_model_fashion_word_nonword_z_study_2))) * 2
+
+n2_model_fashion_word_nonword_study_2 <- gee(v ~ is_word,
+    id = subject,
+    subset = erp_component == "n2" & category == "fashion" & electrode == "Pz",
+    data = time_window_data_study_2,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+n2_model_fashion_word_nonword_beta_study_2 <- n2_model_fashion_word_nonword_study_2$coefficients[2, 'Estimate']
+n2_model_fashion_word_nonword_se_study_2 <- n2_model_fashion_word_nonword_study_2$coefficients[2, 'Robust S.E.']
+n2_model_fashion_word_nonword_z_study_2 <- n2_model_fashion_word_nonword_study_2$coefficients[2, 'Robust z']
+n2_model_fashion_word_nonword_p_study_2 <- (1 - pnorm(abs(n2_model_fashion_word_nonword_z_study_2))) * 2
+
+p3_model_fashion_word_nonword_study_2 <- gee(v ~ is_word,
+    id = subject,
+    subset = erp_component == "p3" & category == "fashion" & electrode == "Pz",
+    data = time_window_data_study_2,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+p3_model_fashion_word_nonword_beta_study_2 <- p3_model_fashion_word_nonword_study_2$coefficients[2, 'Estimate']
+p3_model_fashion_word_nonword_se_study_2 <- p3_model_fashion_word_nonword_study_2$coefficients[2, 'Robust S.E.']
+p3_model_fashion_word_nonword_z_study_2 <- p3_model_fashion_word_nonword_study_2$coefficients[2, 'Robust z']
+p3_model_fashion_word_nonword_p_study_2 <- (1 - pnorm(abs(p3_model_fashion_word_nonword_z_study_2))) * 2
+
+lpp_model_fashion_word_nonword_study_2 <- gee(v ~ is_word,
+    id = subject,
+    subset = erp_component == "lpp" & category == "fashion" & electrode == "Pz",
+    data = time_window_data_study_2,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+lpp_model_fashion_word_nonword_beta_study_2 <- lpp_model_fashion_word_nonword_study_2$coefficients[2, 'Estimate']
+lpp_model_fashion_word_nonword_se_study_2 <- lpp_model_fashion_word_nonword_study_2$coefficients[2, 'Robust S.E.']
+lpp_model_fashion_word_nonword_z_study_2 <- lpp_model_fashion_word_nonword_study_2$coefficients[2, 'Robust z']
+lpp_model_fashion_word_nonword_p_study_2 <- (1 - pnorm(abs(lpp_model_fashion_word_nonword_z_study_2))) * 2
+
+```
+
+In the fashion condition, there was no significant difference in any of the time windows; P2 window ($\beta$ = `r p2_model_fashion_word_nonword_beta_study_2 %>% round(3)`, *SE* = `r p2_model_fashion_word_nonword_se_study_2 %>% round(3)`, *z* = `r p2_model_fashion_word_nonword_z_study_2 %>% round(3)`, *p* = `r p2_model_fashion_word_nonword_p_study_2 %>% format(scientific=FALSE)`), N2 window ($\beta$ = `r n2_model_fashion_word_nonword_beta_study_2 %>% round(3)`, *SE* = `r n2_model_fashion_word_nonword_se_study_2 %>% round(3)`, *z* = `r n2_model_fashion_word_nonword_z_study_2 %>% round(3)`, *p* = `r n2_model_fashion_word_nonword_p_study_2 %>% format(scientific=FALSE)`), P3 window ($\beta$ = `r p3_model_fashion_word_nonword_beta_study_2 %>% round(3)`, *SE* = `r p3_model_fashion_word_nonword_se_study_2 %>% round(3)`, *z* = `r p3_model_fashion_word_nonword_z_study_2 %>% round(3)`, *p* = `r p3_model_fashion_word_nonword_p_study_2 %>% format(scientific=FALSE)`), and LPP window ($\beta$ = `r lpp_model_fashion_word_nonword_beta_study_2 %>% round(3)`, *SE* = `r lpp_model_fashion_word_nonword_se_study_2 %>% round(3)`, *z* = `r lpp_model_fashion_word_nonword_z_study_2 %>% round(3)`, *p* = `r lpp_model_fashion_word_nonword_p_study_2 %>% format(scientific=FALSE)`).
+
+##### Pop-out effects
+
+Also following Gantman et al. (2020), we looked for ERP differences related to the category vs. non-category distinction in all four time windows at electrode Cz.
+
+```{r}
+#| label: Run GEE models for all time windows, moral data pop-out, study 2
+#| include: false
+
+p2_model_moral_popout_study_2 <- gee(v ~ word_category,
+    id = subject,
+    subset = erp_component == "p2" & category == "moral" & is_word == TRUE & electrode == "Cz",
+    data = time_window_data_study_2,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+p2_model_moral_popout_beta_study_2 <- p2_model_moral_popout_study_2$coefficients[2, 'Estimate']
+p2_model_moral_popout_se_study_2 <- p2_model_moral_popout_study_2$coefficients[2, 'Robust S.E.']
+p2_model_moral_popout_z_study_2 <- p2_model_moral_popout_study_2$coefficients[2, 'Robust z']
+p2_model_moral_popout_p_study_2 <- (1 - pnorm(abs(p2_model_moral_popout_z_study_2))) * 2
+
+n2_model_moral_popout_study_2 <- gee(v ~ word_category,
+    id = subject,
+    subset = erp_component == "n2" & category == "moral" & is_word == TRUE & electrode == "Cz",
+    data = time_window_data_study_2,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+n2_model_moral_popout_beta_study_2 <- n2_model_moral_popout_study_2$coefficients[2, 'Estimate']
+n2_model_moral_popout_se_study_2 <- n2_model_moral_popout_study_2$coefficients[2, 'Robust S.E.']
+n2_model_moral_popout_z_study_2 <- n2_model_moral_popout_study_2$coefficients[2, 'Robust z']
+n2_model_moral_popout_p_study_2 <- (1 - pnorm(abs(n2_model_moral_popout_z_study_2))) * 2
+
+p3_model_moral_popout_study_2 <- gee(v ~ word_category,
+    id = subject,
+    subset = erp_component == "p3" & category == "moral"& is_word == TRUE & electrode == "Cz",
+    data = time_window_data_study_2,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+p3_model_moral_popout_beta_study_2 <- p3_model_moral_popout_study_2$coefficients[2, 'Estimate']
+p3_model_moral_popout_se_study_2 <- p3_model_moral_popout_study_2$coefficients[2, 'Robust S.E.']
+p3_model_moral_popout_z_study_2 <- p3_model_moral_popout_study_2$coefficients[2, 'Robust z']
+p3_model_moral_popout_p_study_2 <- (1 - pnorm(abs(p3_model_moral_popout_z_study_2))) * 2
+
+
+lpp_model_moral_popout_study_2 <- gee(v ~ word_category,
+    id = subject,
+    subset = erp_component == "lpp" & category == "moral"& is_word == TRUE & electrode == "Cz",
+    data = time_window_data_study_2,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+lpp_model_moral_popout_beta_study_2 <- lpp_model_moral_popout_study_2$coefficients[2, 'Estimate']
+lpp_model_moral_popout_se_study_2 <- lpp_model_moral_popout_study_2$coefficients[2, 'Robust S.E.']
+lpp_model_moral_popout_z_study_2 <- lpp_model_moral_popout_study_2$coefficients[2, 'Robust z']
+lpp_model_moral_popout_p_study_2 <- (1 - pnorm(abs(lpp_model_moral_popout_z_study_2))) * 2
+
+
+```
+
+In the moral condition, there was a significant difference between moral and non-moral words in the P2 window ($\beta$ = `r p2_model_moral_popout_beta_study_2 %>% round(3)`, *SE* = `r p2_model_moral_popout_se_study_2 %>% round(3)`, *z* = `r p2_model_moral_popout_z_study_2 %>% round(3)`, *p* = `r p2_model_moral_popout_p_study_2 %>% format(scientific=FALSE)`), but this difference was in the opposite direction predicted by Gantman et al. (2020). There were no significant differences between moral and non-moral words in the N2 window ($\beta$ = `r n2_model_moral_popout_beta_study_2 %>% round(3)`, *SE* = `r n2_model_moral_popout_se_study_2 %>% round(3)`, *z* = `r n2_model_moral_popout_z_study_2 %>% round(3)`, *p* = `r n2_model_moral_popout_p_study_2 %>% format(scientific=FALSE)`), P3 window ($\beta$ = `r p3_model_moral_popout_beta_study_2 %>% round(3)`, *SE* = `r p3_model_moral_popout_se_study_2 %>% round(3)`, *z* = `r p3_model_moral_popout_z_study_2 %>% round(3)`, *p* = `r p3_model_moral_popout_p_study_2 %>% format(scientific=FALSE)`), and the LPP window ($\beta$ = `r lpp_model_moral_popout_beta_study_2 %>% round(3)`, *SE* = `r lpp_model_moral_popout_se_study_2 %>% round(3)`, *z* = `r lpp_model_moral_popout_z_study_2 %>% round(3)`, *p* = `r lpp_model_moral_popout_p_study_2 %>% format(scientific=FALSE)`).
+
+```{r}
+#| label: Run GEE models for all time windows, fashion data pop-out, study 2
+#| include: false
+
+p2_model_fashion_popout_study_2 <- gee(v ~ word_category,
+    id = subject,
+    subset = erp_component == "p2" & category == "fashion" & is_word == TRUE & electrode == "Cz",
+    data = time_window_data_study_2,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+p2_model_fashion_popout_beta_study_2 <- p2_model_fashion_popout_study_2$coefficients[2, 'Estimate']
+p2_model_fashion_popout_se_study_2 <- p2_model_fashion_popout_study_2$coefficients[2, 'Robust S.E.']
+p2_model_fashion_popout_z_study_2 <- p2_model_fashion_popout_study_2$coefficients[2, 'Robust z']
+p2_model_fashion_popout_p_study_2 <- (1 - pnorm(abs(p2_model_fashion_popout_z_study_2))) * 2
+
+n2_model_fashion_popout_study_2 <- gee(v ~ word_category,
+    id = subject,
+    subset = erp_component == "n2" & category == "fashion"& is_word == TRUE & electrode == "Cz",
+    data = time_window_data_study_2,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+n2_model_fashion_popout_beta_study_2 <- n2_model_fashion_popout_study_2$coefficients[2, 'Estimate']
+n2_model_fashion_popout_se_study_2 <- n2_model_fashion_popout_study_2$coefficients[2, 'Robust S.E.']
+n2_model_fashion_popout_z_study_2 <- n2_model_fashion_popout_study_2$coefficients[2, 'Robust z']
+n2_model_fashion_popout_p_study_2 <- (1 - pnorm(abs(n2_model_fashion_popout_z_study_2))) * 2
+
+p3_model_fashion_popout_study_2 <- gee(v ~ word_category,
+    id = subject,
+    subset = erp_component == "p3" & category == "fashion"& is_word == TRUE & electrode == "Cz",
+    data = time_window_data_study_2,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+p3_model_fashion_popout_beta_study_2 <- p3_model_fashion_popout_study_2$coefficients[2, 'Estimate']
+p3_model_fashion_popout_se_study_2 <- p3_model_fashion_popout_study_2$coefficients[2, 'Robust S.E.']
+p3_model_fashion_popout_z_study_2 <- p3_model_fashion_popout_study_2$coefficients[2, 'Robust z']
+p3_model_fashion_popout_p_study_2 <- (1 - pnorm(abs(p3_model_fashion_popout_z_study_2))) * 2
+
+lpp_model_fashion_popout_study_2 <- gee(v ~ word_category,
+    id = subject,
+    subset = erp_component == "lpp" & category == "fashion"& is_word == TRUE & electrode == "Cz",
+    data = time_window_data_study_2,
+    family = gaussian,
+    corstr = "exchangeable") %>% summary()
+
+lpp_model_fashion_popout_beta_study_2 <- lpp_model_fashion_popout_study_2$coefficients[2, 'Estimate']
+lpp_model_fashion_popout_se_study_2 <- lpp_model_fashion_popout_study_2$coefficients[2, 'Robust S.E.']
+lpp_model_fashion_popout_z_study_2 <- lpp_model_fashion_popout_study_2$coefficients[2, 'Robust z']
+lpp_model_fashion_popout_p_study_2 <- (1 - pnorm(abs(lpp_model_fashion_popout_z_study_2))) * 2
+
+```
+
+In the fashion condition, there fashion words elicited a more positive ERP than non-fashion words in the P3 window ($\beta$ = `r p3_model_fashion_popout_beta_study_2 %>% round(3)`, *SE* = `r p3_model_fashion_popout_se_study_2 %>% round(3)`, *z* = `r p3_model_fashion_popout_z_study_2 %>% round(3)`, *p* = `r p3_model_fashion_popout_p_study_2 %>% format(scientific=FALSE)`) and LPP window ($\beta$ = `r lpp_model_fashion_popout_beta_study_2 %>% round(3)`, *SE* = `r lpp_model_fashion_popout_se_study_2 %>% round(3)`, *z* = `r lpp_model_fashion_popout_z_study_2 %>% round(3)`, *p* = `r lpp_model_fashion_popout_p_study_2 %>% format(scientific=FALSE)`). There was no significant difference in the P2 window ($\beta$ = `r p2_model_fashion_popout_beta_study_2 %>% round(3)`, *SE* = `r p2_model_fashion_popout_se_study_2 %>% round(3)`, *z* = `r p2_model_fashion_popout_z_study_2 %>% round(3)`, *p* = `r p2_model_fashion_popout_p_study_2 %>% format(scientific=FALSE)`) and N2 window ($\beta$ = `r n2_model_fashion_popout_beta_study_2 %>% round(3)`, *SE* = `r n2_model_fashion_popout_se_study_2 %>% round(3)`, *z* = `r n2_model_fashion_popout_z_study_2 %>% round(3)`, *p* = `r n2_model_fashion_popout_p_study_2 %>% format(scientific=FALSE)`).
