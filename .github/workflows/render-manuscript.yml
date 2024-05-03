@@ -48,5 +48,6 @@ jobs:
           Rscript preprocessing/merge-local.R
 
       - name: Merge Behavioral data
+        run: |
           Rscript preprocessing/merge-behavioral-local.R
           
