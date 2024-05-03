@@ -49,7 +49,7 @@ jobs:
       
       - name: Merge EEG data
         run: |
-          Rscript preprocessing/merge-local.R
+          Rscript preprocessing/mege-local.R
 
       
           
