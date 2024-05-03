@@ -6,6 +6,9 @@ library(dplyr)
 which_phase <- "phase_2"
 
 files <- list.files(paste0("data/", which_phase, "/preprocessed"), pattern = "*.csv", full.names = TRUE)
+
+cat(files)
+
 data <- lapply(files, function(x){
   read_csv(x, col_types = "cdcllcddlc") %>% 
     dplyr::filter(electrode %in% c("Cz", "Pz")) %>%
