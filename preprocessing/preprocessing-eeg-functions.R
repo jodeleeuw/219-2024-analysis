@@ -1,7 +1,6 @@
 library(dplyr)
 library(tidyr)
 library(purrr)
-library(ravetools)
 library(eegkit)
 source('preprocessing/extract-events.R')
 
