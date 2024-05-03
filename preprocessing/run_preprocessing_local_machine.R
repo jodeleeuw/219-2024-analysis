@@ -8,7 +8,7 @@ subjects <- list.files(paste0('data/', which_phase, '/raw/beh/'), pattern="json"
   str_extract("[0-9]*.json") %>%
   str_remove(".json")
 
-print(subjects)
+cat(subjects)
 
 for(subject in subjects){
   
